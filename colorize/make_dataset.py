@@ -3,6 +3,7 @@ from PIL import Image
 import random
 import shutil
 import numpy as np
+from dataset_utils import crop_resize
 
 
 def main(root: str, train_size: int, val_size: int, test_size: int,
@@ -75,19 +76,6 @@ def is_grayscale(img: Image) -> bool:
     if arr.ndim == 2 or arr.shape[2] == 1:
         return True
     return False
-
-
-def crop_resize(img: Image, new_width: int, new_height: int) -> Image:
-    kx, ky = img.width / new_width, img.height / new_height
-    if kx > ky:  # crop horizontally
-        w = int(round(new_width * ky))
-        left = (img.width - w) // 2
-        img = img.crop((left, 0, left + w, img.height))
-    else:  # crop vertically
-        h = int(round(new_height * kx))
-        upper = (img.height - h) // 2
-        img = img.crop((0, upper, img.width, upper + h))
-    return img.resize((new_width, new_height))
 
 
 if __name__ == '__main__':

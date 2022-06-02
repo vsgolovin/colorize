@@ -1,4 +1,5 @@
 from typing import Optional, Callable
+from PIL import Image
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -30,3 +31,16 @@ class ColorizationDataset(Dataset):
 
     def __len__(self):
         return len(self.original_dataset)
+
+
+def crop_resize(img: Image, new_width: int, new_height: int) -> Image:
+    kx, ky = img.width / new_width, img.height / new_height
+    if kx > ky:  # crop horizontally
+        w = int(round(new_width * ky))
+        left = (img.width - w) // 2
+        img = img.crop((left, 0, left + w, img.height))
+    else:  # crop vertically
+        h = int(round(new_height * kx))
+        upper = (img.height - h) // 2
+        img = img.crop((0, upper, img.width, upper + h))
+    return img.resize((new_width, new_height))

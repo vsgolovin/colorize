@@ -1,5 +1,5 @@
 import torch
-from datasets import ColorizationDataset
+from dataset_utils import ColorizationDataset
 import torchvision as tv
 from generators import UNet
 
