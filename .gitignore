@@ -1,6 +1,5 @@
 # Do not copy data
-data/
-!data/.keep
+/data/*/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
