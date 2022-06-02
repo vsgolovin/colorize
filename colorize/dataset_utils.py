@@ -1,33 +1,59 @@
 from typing import Optional, Callable
+import os
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
-from torchvision import transforms
+import torchvision as tv
+
+
+NORM_MEAN = (0.485, 0.456, 0.406)
+NORM_STD = (0.229, 0.224, 0.225)
+
+
+class ColorizationFolderDataset(Dataset):
+    """
+    Read dataset from a folder of images.
+    """
+    def __init__(self, folder: str, transforms: Optional[Callable] = None,
+                 image_format: str = 'JPEG'):
+        assert os.path.exists(folder)
+        self.folder = folder
+        self.files = tuple(os.path.join(folder, f) for f in os.listdir(folder)
+                           if f.endswith(image_format))
+        self.transforms = transforms
+        self.grayscale = tv.transforms.Grayscale(num_output_channels=3)
+        self.to_tensor = tv.transforms.ToTensor()
+        self.normalize = tv.transforms.Normalize(mean=NORM_MEAN, std=NORM_STD)
+
+    def __getitem__(self, index: int) -> tuple[torch.tensor, torch.tensor]:
+        with Image.open(self.files[index]) as img:
+            if self.transforms:
+                img = self.transforms(img)
+            gray = self.to_tensor(self.grayscale(img))
+            gray = self.normalize(gray)
+            img = self.to_tensor(img)
+        return gray, img
+
+    def __len__(self):
+        return len(self.files)
 
 
 class ColorizationDataset(Dataset):
-    def __init__(self, data: Dataset, transform: Optional[Callable] = None,
-                 target_transform: Optional[Callable] = None):
+    def __init__(self, data: Dataset, transforms: Optional[Callable] = None):
         self.original_dataset = data  # some image dataset
-        self.grayscale = transforms.Grayscale(num_output_channels=3)
-        self.trasform_out = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-        ])
-
-        # optional input (grayscale) and output image transforms
-        self.transform = transform
-        self.target_transform = target_transform
+        self.grayscale = tv.transforms.Grayscale(num_output_channels=3)
+        self.to_tensor = tv.transforms.ToTensor()
+        self.normalize = tv.transforms.Normalize(mean=NORM_MEAN, std=NORM_STD)
+        self.transforms = transforms
 
     def __getitem__(self, index: int) -> tuple[torch.tensor, torch.tensor]:
         img = self.original_dataset.__getitem__(index)[0]
-        gray = self.grayscale(img)
-        if self.transform:
-            gray = self.transform(gray)
-        if self.target_transform:
-            img = self.target_transform(img)
-        return self.trasform_out(gray), self.trasform_out(img)
+        if self.transforms:
+            img = self.transforms(img)
+        gray = self.to_tensor(self.grayscale(img))
+        gray = self.normalize(gray)
+        img = self.to_tensor(img)
+        return gray, img
 
     def __len__(self):
         return len(self.original_dataset)
@@ -44,3 +70,9 @@ def crop_resize(img: Image, new_width: int, new_height: int) -> Image:
         upper = (img.height - h) // 2
         img = img.crop((0, upper, img.width, upper + h))
     return img.resize((new_width, new_height))
+
+
+def tensor2image(x: torch.tensor) -> Image:
+    x = x.cpu().detach()
+    x = torch.clamp(x, 0, 1)
+    return tv.transforms.ToPILImage()(x)

@@ -1,13 +1,13 @@
 import torch
-from dataset_utils import ColorizationDataset
+from dataset_utils import ColorizationFolderDataset, tensor2image
 import torchvision as tv
 from generators import UNet
 
 
 # initialize dataset
-dataset = ColorizationDataset(
-    data=tv.datasets.CIFAR10(root='./data/CIFAR10', train=True, download=True),
-    transform=tv.transforms.Pad(96)  # resnet needs 224x224
+dataset = ColorizationFolderDataset(
+    folder='data/val',
+    transforms=tv.transforms.RandomCrop(224)
 )
 model = UNet()
 
@@ -23,3 +23,8 @@ output = model(x)
 print(f'Input shape: {x.shape}')
 print(f'Target shape: {y.shape}')
 print(f'Output shape: {output.shape}')
+
+original = tensor2image(y.squeeze())
+original.show()
+output = tensor2image(output.squeeze())
+output.show()
