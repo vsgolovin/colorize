@@ -14,12 +14,20 @@ class ColorizationFolderDataset(Dataset):
     """
     Read dataset from a folder of images.
     """
-    def __init__(self, folder: str, transforms: Optional[Callable] = None,
-                 image_format: str = 'JPEG'):
+
+    def __init__(
+        self,
+        folder: str,
+        transforms: Optional[Callable] = None,
+        image_format: str = "JPEG",
+    ):
         assert os.path.exists(folder)
         self.folder = folder
-        self.files = tuple(os.path.join(folder, f) for f in os.listdir(folder)
-                           if f.endswith(image_format))
+        self.files = tuple(
+            os.path.join(folder, f)
+            for f in os.listdir(folder)
+            if f.endswith(image_format)
+        )
         self.transforms = transforms
         self.grayscale = tv.transforms.Grayscale(num_output_channels=3)
         self.to_tensor = tv.transforms.ToTensor()
@@ -57,6 +65,38 @@ class ColorizationDataset(Dataset):
 
     def __len__(self):
         return len(self.original_dataset)
+
+
+class CICFolderDataset(Dataset):
+    """
+    Read dataset from a folder of images.
+    """
+
+    def __init__(
+        self,
+        folder: str,
+        transforms: Optional[Callable] = None,
+        image_format: str = "JPEG",
+    ):
+        assert os.path.exists(folder)
+        self.folder = folder
+        self.files = tuple(
+            os.path.join(folder, f)
+            for f in os.listdir(folder)
+            if f.endswith(image_format)
+        )
+        self.grayscale = tv.transforms.Grayscale(num_output_channels=3)
+        self.to_tensor = tv.transforms.ToTensor()
+
+    def __getitem__(self, index: int) -> tuple[torch.tensor, torch.tensor]:
+        with Image.open(self.files[index]) as img:
+            gray = np.asarray(self.grayscale(img))
+            tens_l_orig, tens_l_rs = preprocess_img(gray, HW=(256, 256))
+            img = self.to_tensor(img)
+        return tens_l_orig[0], tens_l_rs[0], img
+
+    def __len__(self):
+        return len(self.files)
 
 
 def crop_resize(img: Image, new_width: int, new_height: int) -> Image:
