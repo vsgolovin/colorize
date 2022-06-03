@@ -27,7 +27,7 @@ class UNet(nn.Module):
         self.dec_block4 = self._dec_block(512, True)   # -> (128, 28, 28)
         self.dec_block3 = self._dec_block(256, True)   # -> (64, 56, 56)
         self.dec_block2 = self._dec_block(128, False)  # -> (64, 112, 112)
-        self.dec_block1 = self._dec_block(128, True)   # -> (32, 228, 228)
+        self.dec_block1 = self._dec_block(128, True)   # -> (32, 224, 224)
 
         self.output_conv = nn.Sequential(
             nn.Conv2d(32, 16, (3, 3), stride=1, padding=1),
@@ -35,7 +35,7 @@ class UNet(nn.Module):
             nn.Conv2d(16, 8, (3, 3), stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(8, 3, (3, 3), stride=1, padding=1)
-        )  # -> (3, 228, 228)
+        )  # -> (3, 224, 224)
 
     def forward(self, X: torch.tensor) -> torch.tensor:
         features = []
@@ -49,7 +49,7 @@ class UNet(nn.Module):
                                     self.dec_block2, self.dec_block1)):
             X = torch.cat([feature, X], dim=1)
             X = module(X)
-        return self.output_conv(X)  # add clipping?
+        return self.output_conv(X)
 
     @staticmethod
     def _dec_block(c_in: int, decrease_twice: bool) -> nn.Module:
