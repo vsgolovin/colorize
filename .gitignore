@@ -1,6 +1,9 @@
 # Do not copy data
 /data/*/**
 
+# Training outputs -- images, state_dicts, loss_plots
+/output
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
