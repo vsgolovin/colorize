@@ -1,3 +1,6 @@
 [submodule "colorization"]
 	path = colorization
 	url = https://github.com/richzhang/colorization
+[submodule "DeOldify"]
+	path = DeOldify
+	url = https://github.com/jantic/DeOldify

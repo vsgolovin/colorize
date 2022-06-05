@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+import torchvision as tv
 from PIL import Image
 import random
 import shutil
@@ -100,6 +102,19 @@ def is_grayscale(img: Image) -> bool:
     if arr.ndim == 2 or arr.shape[2] == 1:
         return True
     return False
+
+def Grayscale_folder(inp_folder: str, out_folder: int, n_channels: int=3, n_pictures=1000, image_format: str="JPEG"):
+    assert os.path.exists(inp_folder)
+    Path(out_folder).mkdir(parents=True, exist_ok=True)
+    grayscale = tv.transforms.Grayscale(num_output_channels=n_channels)
+    filenames = tuple(f 
+    for f in os.listdir(inp_folder) 
+    if f.endswith(image_format)
+    )[:n_pictures]
+    for filename in filenames:
+        with Image.open(Path(inp_folder, filename)) as img:
+            gray = grayscale(img)
+            gray.save(Path(out_folder, filename))
 
 
 if __name__ == "__main__":
