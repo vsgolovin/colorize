@@ -182,7 +182,7 @@ class PixelShuffle_ICNR(nn.Module):
     """
     def __init__(self, c_in: int, c_out: Optional[int] = None, scale: int = 2):
         super().__init__()
-        c_out = c_out if c_out is not None else c_in
+        c_out = c_out if c_out is not None else c_in * scale ** 2
         conv = nn.Conv2d(c_in, c_out, kernel_size=1, bias=False)
         conv.weight.data.copy_(icnr_init(conv.weight.data))
         self.conv = conv
