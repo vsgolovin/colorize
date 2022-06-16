@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torchvision
+import layers
 
 
 class UNet(nn.Module):
@@ -23,18 +24,23 @@ class UNet(nn.Module):
         self.enc_block5 = resnet.layer4    # -> (512, 7, 7)
 
         # decoder
-        self.dec_block5 = self._dec_block(512, False)  # -> (256, 14, 14)
-        self.dec_block4 = self._dec_block(512, True)   # -> (128, 28, 28)
-        self.dec_block3 = self._dec_block(256, True)   # -> (64, 56, 56)
-        self.dec_block2 = self._dec_block(128, False)  # -> (64, 112, 112)
-        self.dec_block1 = self._dec_block(128, True)   # -> (32, 224, 224)
+        self.dec_block5 = self._dec_block((512, 1024, 512), 256
+                                          )  # -> (256, 14, 14)
+        self.dec_block4 = self._dec_block((512, 256, 256), 128
+                                          )  # -> (128, 28, 28)
+        self.dec_block3 = self._dec_block((256, 128, 128), 64
+                                          )  # -> (64, 56, 56)
+        self.dec_block2 = self._dec_block((128, 64, 128), 64
+                                          )  # -> (64, 112, 112)
+        self.dec_block1 = self._dec_block((128, 64, 64), 32
+                                          )  # -> (32, 224, 224)
 
+        # final convolution
         self.output_conv = nn.Sequential(
-            nn.Conv2d(32, 16, (3, 3), stride=1, padding=1),
+            nn.Conv2d(32, 16, 1, 1, 0),
+            nn.BatchNorm2d(16),
             nn.ReLU(),
-            nn.Conv2d(16, 8, (3, 3), stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(8, 3, (3, 3), stride=1, padding=1)
+            nn.Conv2d(16, 3, 1, 1, 0),
         )  # -> (3, 224, 224)
 
     def forward(self, X: torch.tensor) -> torch.tensor:
@@ -52,13 +58,10 @@ class UNet(nn.Module):
         return self.output_conv(X)
 
     @staticmethod
-    def _dec_block(c_in: int, decrease_twice: bool) -> nn.Module:
-        k = 2 if decrease_twice else 1
-        nc = (c_in, c_in // k, c_in // 2 // k)  # number of channels
+    def _dec_block(c_conv: tuple[int], c_out: int) -> nn.Module:
         return nn.Sequential(
-            nn.Conv2d(nc[0], nc[1], (3, 3), stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(nc[1], nc[2], (3, 3), stride=1, padding=1),
-            nn.ReLU(),
-            nn.Upsample(scale_factor=2)
+            layers.ConvBlock33(c_conv),
+            layers.PixelShuffle_ICNR(c_conv[-1], c_out * 4, scale=2),
+            nn.BatchNorm2d(c_out)
         )
