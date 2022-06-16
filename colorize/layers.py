@@ -132,3 +132,35 @@ class SelfAttention(nn.Module):
         qk = self.softmax(torch.bmm(q.transpose(1, 2), k))
         out = self.gamma * torch.bmm(v, qk) + x
         return out.reshape(size)
+
+
+def icnr_init(x, scale=2, init=nn.init.kaiming_normal_):
+    "ICNR init of `x`, with `scale` and `init` function"
+    ni, nf, h, w = x.shape
+    ni2 = int(ni/(scale**2))
+    k = init(x.new_zeros([ni2, nf, h, w])).transpose(0, 1)
+    k = k.contiguous().view(ni2, nf, -1)
+    k = k.repeat(1, 1, scale**2)
+    return k.contiguous().view([nf, ni, h, w]).transpose(0, 1)
+
+
+class PixelShuffle_ICNR(nn.Module):
+    """
+    PixelShuffle upsampling with ICNR weight initialization
+    """
+    def __init__(self, c_in: int, c_out=None, scale: int = 2):
+        super().__init__()
+        c_out = c_out if c_out is not None else c_in
+        conv = nn.Conv2d(c_in, c_out, kernel_size=1, bias=False)
+        conv.weight.data.copy_(icnr_init(conv.weight.data))
+        self.conv = conv
+        self.bn = nn.BatchNorm2d(c_out)
+        self.relu = nn.ReLU()
+        self.shuffle = nn.PixelShuffle(scale)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        x = self.shuffle(x)
+        return x
