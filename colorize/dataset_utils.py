@@ -110,6 +110,7 @@ class CICFolderDataset(Dataset):
     def __len__(self):
         return len(self.files)
 
+
 class MetrixDataset(Dataset):
     """
     Read dataset from original and colorized folder.

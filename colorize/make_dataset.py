@@ -103,6 +103,7 @@ def is_grayscale(img: Image) -> bool:
         return True
     return False
 
+
 def Grayscale_folder(inp_folder: str, out_folder: int, n_channels: int=3, n_pictures=1000, image_format: str="JPEG"):
     assert os.path.exists(inp_folder)
     Path(out_folder).mkdir(parents=True, exist_ok=True)

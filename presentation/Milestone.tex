@@ -19,6 +19,8 @@
 \usepackage{fontspec}      % подготавливает загрузку шрифтов Open Type, True Type и др.
 \setsansfont{HSE Sans} 
 \setmonofont{Courier New}
+% \setmainfont{Arial}
+% \setsansfont{Arial}
 \uselanguage{russian}
 \languagepath{russian}
 \deftranslation[to=russian]{Theorem}{Теорема}
@@ -45,12 +47,30 @@
 \date{\today}
 
 \begin{document}	% Начало презентации
-\renewcommand{\inserttotalframenumber}{5}   % Надо будет починить
+\renewcommand{\inserttotalframenumber}{8}   % Надо будет починить
 
 \frame[plain]{\titlepage}	% Титульный слайд
 
 \begin{frame}{Постановка задачи}
 %\framesubtitle{}
+\begin{columns}
+    \begin{column}{.6\textwidth}
+    \begin{itemize}
+        \item Колоризация черно-белых изображений при помощи нейронныых сетей
+        
+        \item Обзор существующих решений и попытка их улучшения
+    \end{itemize}
+    \end{column}
+    \begin{column}{.4\textwidth}
+    \begin{figure}
+        \includegraphics[width=\textwidth]{DeOldify.jpeg}
+        \caption*{Проект DeOldify}
+    \end{figure}
+    \end{column}
+\end{columns}
+
+
+
 \end{frame}
 
 \begin{frame}{\href{https://github.com/richzhang/colorization}{Colorful Image Colorization} (2016, 2017)}
@@ -86,8 +106,12 @@
 
 \begin{frame}{Реализованные бейзлайны}
 %\framesubtitle{}
+\begin{itemize}
+\item В качестве базовых метрик были взяты \textbf{Feature Loss}, основанный на \textbf{VGG16}, и обычный \textbf{MSE}.
+    \item Метрики были посчитаны для \textbf{1000} "колоризованых"\ картинок из \textbf{ImageNet} (\href{https://drive.google.com/drive/folders/1ebPVAsKlLlXY2Tg8Q1TXbiTRhfdegI40}{ссылка на папку с результатами})
+\end{itemize}
 
-\begin{table}
+\begin{table}\bf
     \begin{tabular}{l|c|c|c|c}
     \hline
     \multicolumn{5}{c}{Colorization Results on 1000 224x224 images}\\ 
@@ -97,23 +121,54 @@
                             & Params & Runtime & VGG16 & MSE \\
                             & (MB) & (s) & (loss) & (loss) \\
     \hline
-    CIC-ECCV16 & 129 & 250 & 0.52579 & 0.00902\\
-    CIC-siggraph17 & 137 & 1232 & 0.45244 & 0.00655 \\
+    CIC-ECCV16 & 129 & 250 & .52579 & .00902\\
+    CIC-siggraph17 & 137 & 1232 & .45244 & .00655 \\
     \hline 
-    DeOldify Stable & 874 & 4301 & 0.45699 & 0.00695\\
-    DeOldify Artist & 255 & 4287 & 0.46735 & 0.00696\\
-
-
-    
-
+    DeOldify Stable & 874 & 4301 & .45699 & .00695\\
+    DeOldify Artist & 255 & 4287 & .46735 & .00696\\
     \end{tabular}
+    \caption*{Ошибки колоризации изображений}
 \end{table}
 
 \end{frame}
 
-\begin{frame}{План экспериментов}
-%\framesubtitle{}
+
+\begin{frame}{Текущие результаты}
+\vspace*{-3mm}
+\begin{columns}
+    \begin{column}{.65\textwidth}
+        \begin{itemize}
+            \item Подготовлен датасет (100 + 5 + 10 тыс. изображений из ImageNet) и инструменты для работы с ним в \texttt{pytorch};
+            \item Написан модуль \texttt{VGG16Loss} для расчёта \href{https://arxiv.org/abs/1603.08155}{Perceptual} / Feature loss (фактически аналогично ДЗ по style transfer);
+            \item Разработан и обучен первый вариант \textbf{U-Net} генератора на основе \texttt{resnet34}. При текущей реализации получаемые изображения имеют слабый контраст и серо-зеленый оттенок, простые изменения архитектуры \textbf{U-Net} (добавление простых ResNet-блоков и батч нормализации в декодер) и параметров perceptual loss не приводят к существенным изменениям.
+        \end{itemize}
+    \end{column}
+    \begin{column}{.35\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[scale=.4]{11_unet.jpeg}\\
+            \includegraphics[scale=.4]{11_real.jpeg}
+            \caption*{Cгенерированное U-Net и исходное изображения}
+            %\label{fig:unet_example}
+        \end{figure}
+    \end{column}
+\end{columns}
 \end{frame}
 
+\begin{frame}{План экспериментов}
+%\framesubtitle{}
+\begin{itemize}
+    \item Модификация архитектуры \textbf{U-Net}: использование более сложных энкодеров, добавления улучшений, использованных в \textbf{DeOldify} (self-attention, spectral normalization).
+    \item Обучение в режиме \textbf{NoGAN}. \textit{Опционально: решение проблемы автоматического поиска момента остановки обучения}.
+    \item Эксперименты с loss-функцией, поиск оптимальных параметров для получения ярких изображений.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Ссылки}
+\begin{itemize}
+    \item \href{https://github.com/vsgolovin/colorize/tree/Mailstone}{GitHub}
+    \item \href{https://drive.google.com/drive/folders/1ebPVAsKlLlXY2Tg8Q1TXbiTRhfdegI40}{Google Drive}
+\end{itemize}
+\end{frame}
 
 \end{document}
