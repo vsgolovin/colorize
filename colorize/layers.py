@@ -69,7 +69,7 @@ class ResidualUnit33(ResidualUnitBase):
     def __init__(self, channels: tuple[int, int, int], bn: bool = True,
                  bn_first: bool = True, pre_activation: bool = False,
                  identity_conv: bool = False, kaiming_init: bool = True,
-                 conv_bias: bool = False):
+                 conv_bias: bool = False, self_attention: bool = False):
         super().__init__(channels, bn, bn_first, pre_activation, identity_conv)
 
         # residual function
@@ -78,6 +78,8 @@ class ResidualUnit33(ResidualUnitBase):
                       self._activation(channels[1]),
                       nn.Conv2d(channels[1], channels[2], 3, 1, 1,
                                 bias=conv_bias)]
+        if self_attention:
+            rf_modules.insert(-1, SelfAttention(channels[1]))
         if pre_activation:
             rf_modules = [self._activation(channels[0])] + rf_modules
         elif self.use_bn:
@@ -96,7 +98,7 @@ class ResidualUnit131(ResidualUnitBase):
     def __init__(self, channels: tuple[int, int, int, int], bn: bool = True,
                  bn_first: bool = True, pre_activation: bool = False,
                  identity_conv: bool = False, kaiming_init: bool = True,
-                 conv_bias: bool = False):
+                 conv_bias: bool = False, self_attention: bool = False):
         super().__init__(channels, bn, bn_first, pre_activation, identity_conv)
 
         # residual function
@@ -108,6 +110,8 @@ class ResidualUnit131(ResidualUnitBase):
                       self._activation(channels[2]),
                       nn.Conv2d(channels[2], channels[3], 1, 1, 0,
                                 bias=conv_bias)]
+        if self_attention:
+            rf_modules.insert(-1, SelfAttention(channels[2]))
         if pre_activation:
             rf_modules = [self._activation(channels[0])] + rf_modules
         elif self.use_bn:
@@ -122,20 +126,20 @@ class ResidualUnit131(ResidualUnitBase):
 class ConvBlock33(ResidualUnit33):
     def __init__(self, channels: tuple[int, int, int], bn: bool = True,
                  bn_first: bool = True, kaiming_init: bool = False,
-                 conv_bias: bool = True):
+                 conv_bias: bool = True, self_attention: bool = False):
         super().__init__(channels, bn, bn_first, pre_activation=False,
                          identity_conv=False, kaiming_init=kaiming_init,
-                         conv_bias=conv_bias)
+                         conv_bias=conv_bias, self_attention=self_attention)
         self.identity = lambda _: 0
 
 
 class ConvBlock131(ResidualUnit131):
     def __init__(self, channels: tuple[int, int, int], bn: bool = True,
                  bn_first: bool = True, kaiming_init: bool = False,
-                 conv_bias: bool = True):
+                 conv_bias: bool = True, self_attention: bool = False):
         super().__init__(channels, bn, bn_first, pre_activation=False,
                          identity_conv=False, kaiming_init=kaiming_init,
-                         conv_bias=conv_bias)
+                         conv_bias=conv_bias, self_attention=self_attention)
         self.identity = lambda _: 0
 
 
