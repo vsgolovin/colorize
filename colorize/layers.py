@@ -112,6 +112,22 @@ class ResidualUnit131(ResidualUnitBase):
             self._initialize()
 
 
+class ConvBlock33(ResidualUnit33):
+    def __init__(self, channels: tuple[int, int, int], bn: bool = True,
+                 bn_first: bool = True, kaiming_init: bool = True):
+        super().__init__(channels, bn, bn_first, pre_activation=False,
+                         identity_conv=False, kaiming_init=kaiming_init)
+        self.identity = lambda _: 0
+
+
+class ConvBlock131(ResidualUnit131):
+    def __init__(self, channels: tuple[int, int, int], bn: bool = True,
+                 bn_first: bool = True, kaiming_init: bool = True):
+        super().__init__(channels, bn, bn_first, pre_activation=False,
+                         identity_conv=False, kaiming_init=kaiming_init)
+        self.identity = lambda _: 0
+
+
 class SelfAttention(nn.Module):
     """
     Self-attention module proposed in the SAGAN paper (arXiv:1805.08318).
