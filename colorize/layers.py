@@ -71,9 +71,9 @@ class ResidualUnit33(ResidualUnitBase):
         super().__init__(channels, bn, bn_first, pre_activation, identity_conv)
 
         # residual function
-        rf_modules = [nn.Conv2d(channels[0], channels[1], 3, 1, 1),
+        rf_modules = [nn.Conv2d(channels[0], channels[1], 3, 1, 1, bias=False),
                       self._activation(channels[1]),
-                      nn.Conv2d(channels[1], channels[2], 3, 1, 1)]
+                      nn.Conv2d(channels[1], channels[2], 3, 1, 1, bias=False)]
         if pre_activation:
             rf_modules = [self._activation(channels[0])] + rf_modules
         elif self.use_bn:
@@ -95,11 +95,11 @@ class ResidualUnit131(ResidualUnitBase):
         super().__init__(channels, bn, bn_first, pre_activation, identity_conv)
 
         # residual function
-        rf_modules = [nn.Conv2d(channels[0], channels[1], 1, 1, 0),
+        rf_modules = [nn.Conv2d(channels[0], channels[1], 1, 1, 0, bias=False),
                       self._activation(channels[1]),
-                      nn.Conv2d(channels[1], channels[2], 3, 1, 1),
+                      nn.Conv2d(channels[1], channels[2], 3, 1, 1, bias=False),
                       self._activation(channels[2]),
-                      nn.Conv2d(channels[2], channels[3], 1, 1, 0)]
+                      nn.Conv2d(channels[2], channels[3], 1, 1, 0, bias=False)]
         if pre_activation:
             rf_modules = [self._activation(channels[0])] + rf_modules
         elif self.use_bn:
