@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
@@ -148,7 +149,7 @@ class PixelShuffle_ICNR(nn.Module):
     """
     PixelShuffle upsampling with ICNR weight initialization
     """
-    def __init__(self, c_in: int, c_out=None, scale: int = 2):
+    def __init__(self, c_in: int, c_out: Optional[int] = None, scale: int = 2):
         super().__init__()
         c_out = c_out if c_out is not None else c_in
         conv = nn.Conv2d(c_in, c_out, kernel_size=1, bias=False)
