@@ -30,17 +30,18 @@ class UNet(nn.Module):
                                           )  # -> (128, 28, 28)
         self.dec_block3 = self._dec_block((256, 128, 128), 64
                                           )  # -> (64, 56, 56)
-        self.dec_block2 = self._dec_block((128, 64, 128), 64
+        self.dec_block2 = self._dec_block((128, 64, 128), 64,
                                           )  # -> (64, 112, 112)
-        self.dec_block1 = self._dec_block((128, 64, 64), 32
+        self.dec_block1 = self._dec_block((128, 64, 64), 32,
                                           )  # -> (32, 224, 224)
 
         # final convolution
         self.output_conv = nn.Sequential(
-            nn.Conv2d(32, 16, 1, 1, 0),
+            nn.Conv2d(32, 16, 3, 1, 1),
             nn.BatchNorm2d(16),
             nn.ReLU(),
             nn.Conv2d(16, 3, 1, 1, 0),
+            nn.Sigmoid()
         )  # -> (3, 224, 224)
 
     def forward(self, X: torch.tensor) -> torch.tensor:
@@ -58,10 +59,10 @@ class UNet(nn.Module):
         return self.output_conv(X)
 
     @staticmethod
-    def _dec_block(c_conv: tuple[int], c_out: int) -> nn.Module:
+    def _dec_block(c_conv: tuple[int], c_out: int, **kwargs) -> nn.Module:
         return nn.Sequential(
             nn.ReLU(),
-            layers.ConvBlock33(c_conv),
+            layers.ConvBlock33(c_conv, kaiming_init=True, **kwargs),
             layers.PixelShuffle_ICNR(c_conv[-1], c_out * 4, scale=2),
             nn.BatchNorm2d(c_out)
         )

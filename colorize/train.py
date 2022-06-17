@@ -13,9 +13,11 @@ from loss_functions import VGG16Loss
 
 BATCH_SIZE = 32
 OUTPUT_DIR = 'output'
-UPDATES_PER_EVAL = 250
-TOTAL_UPDATES = 5000
+UPDATES_PER_EVAL = 500
+TOTAL_UPDATES = 50000
 EXPORT_IMAGES = True
+LR = 2e-4
+WEIGHT_DECAY = 1e-3
 
 
 def main():
@@ -36,11 +38,11 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet().to(device)
     loss_fn = VGG16Loss(
-        feat_layers=['relu2_2', 'relu3_2', 'relu4_2'],
-        feat_weights=[1., 0.5, 0.5],
+        feat_layers=['relu3_3', 'relu4_3', 'relu5_3'],
+        feat_weights=[0.3, 1.0, 0.15],
         style_layers=[],
         style_weights=[],
-        base_loss=nn.MSELoss
+        base_loss=nn.L1Loss
     ).to(device)
 
     # export first batch of validation set images
@@ -79,7 +81,8 @@ def train(model: nn.Module, train_dataloader: DataLoader,
     cur_samples = 0
     train_losses = []
     val_losses = []
-    optimizer = torch.optim.Adam(params=model.parameters())
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=LR,
+                                 weight_decay=WEIGHT_DECAY)
     model.train()
 
     while True:
