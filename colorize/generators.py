@@ -60,6 +60,7 @@ class UNet34(nn.Module):
     @staticmethod
     def _dec_block(c_conv: tuple[int], c_out: int, **kwargs) -> nn.Module:
         return nn.Sequential(
-            layers.ConvBlock33(c_conv, kaiming_init=True, **kwargs),
+            layers.ConvBlock33(c_conv, kaiming_init=True, spectral_norm=True,
+                               **kwargs),
             layers.PixelShuffle_ICNR(c_conv[-1], c_out*4, scale=2, blur=True),
         )
