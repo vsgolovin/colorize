@@ -109,13 +109,13 @@ def train(model: nn.Module, train_dataloader: DataLoader,
                 optimizer.zero_grad()
                 cur_iter = 0
                 num_updates += 1
-                print(cur_loss / cur_samples, cur_samples, num_updates)
+                # print(cur_loss / cur_samples, cur_samples, num_updates)
 
             # validation
             if num_updates % eval_every == 0 and num_updates != 0:
                 # calculate and save current train loss
                 train_losses.append(cur_loss / cur_samples)
-                print(f'[{num_updates + 1} iterations]')
+                print(f'[{num_updates} iterations]')
                 print(f'  train loss: {train_losses[-1]:.2e}')
                 cur_loss = 0.0
                 cur_samples = 0
