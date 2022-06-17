@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from dataset_utils import ColorizationFolderDataset, tensor2image
-import torchvision as tv
+from torchvision import transforms as T
 from generators import UNet34
 from loss_functions import VGG16Loss
 
@@ -25,7 +25,10 @@ def main():
     # load dataset
     train_dataset = ColorizationFolderDataset(
         folder='data/train',
-        transforms=tv.transforms.RandomCrop(224)
+        transforms=T.Compose([
+            T.RandomResizedCrop(224),
+            T.RandomHorizontalFlip()
+        ])
     )
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
                                   shuffle=True)
@@ -84,8 +87,8 @@ def train(model: nn.Module, train_dataloader: DataLoader,
     cur_iter = 0
     cur_loss = 0.0
     cur_samples = 0
-    train_losses = []
-    val_losses = []
+    train_loss = []
+    val_loss = []
     optimizer = torch.optim.Adam(params=model.parameters(), lr=LR,
                                  weight_decay=WEIGHT_DECAY)
     model.train()
@@ -111,28 +114,28 @@ def train(model: nn.Module, train_dataloader: DataLoader,
                 num_updates += 1
                 # print(cur_loss / cur_samples, cur_samples, num_updates)
 
-            # validation
-            if num_updates % eval_every == 0 and num_updates != 0:
-                # calculate and save current train loss
-                train_losses.append(cur_loss / cur_samples)
-                print(f'[{num_updates} iterations]')
-                print(f'  train loss: {train_losses[-1]:.2e}')
-                cur_loss = 0.0
-                cur_samples = 0
+                # validation
+                if num_updates % eval_every == 0 and num_updates != 0:
+                    # calculate and save current train loss
+                    train_loss.append(cur_loss / cur_samples)
+                    print(f'[{num_updates} iterations]')
+                    print(f'  train loss: {train_loss[-1]:.2e}')
+                    cur_loss = 0.0
+                    cur_samples = 0
 
-                # evaluate
-                val_losses.append(
-                    evaluate(model, val_dataloader, loss_fn, device,
-                             export_images, num_updates)
-                )
-                print(f'  val loss: {val_losses[-1]:.2e}')
-                if save_best and np.argmin(val_losses) == len(val_losses) - 1:
-                    torch.save(model.state_dict(),
-                               os.path.join(OUTPUT_DIR, 'model.pth'))
-                model.train()
+                    # evaluate
+                    val_loss.append(
+                        evaluate(model, val_dataloader, loss_fn, device,
+                                 export_images, num_updates)
+                    )
+                    print(f'  val loss: {val_loss[-1]:.2e}')
+                    if save_best and np.argmin(val_loss) == len(val_loss)-1:
+                        torch.save(model.state_dict(),
+                                   os.path.join(OUTPUT_DIR, 'model.pth'))
+                    model.train()
 
             if num_updates >= total_iterations:
-                return np.array(train_losses), np.array(val_losses)
+                return np.array(train_loss), np.array(val_loss)
 
 
 @torch.no_grad()
