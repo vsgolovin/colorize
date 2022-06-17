@@ -180,7 +180,8 @@ class PixelShuffle_ICNR(nn.Module):
     """
     PixelShuffle upsampling with ICNR weight initialization
     """
-    def __init__(self, c_in: int, c_out: Optional[int] = None, scale: int = 2):
+    def __init__(self, c_in: int, c_out: Optional[int] = None, scale: int = 2,
+                 blur: bool = False):
         super().__init__()
         c_out = c_out if c_out is not None else c_in * scale ** 2
         conv = nn.Conv2d(c_in, c_out, kernel_size=1, bias=False)
@@ -189,10 +190,17 @@ class PixelShuffle_ICNR(nn.Module):
         self.bn = nn.BatchNorm2d(c_out)
         self.relu = nn.ReLU()
         self.shuffle = nn.PixelShuffle(scale)
+        if blur:
+            self.blur = nn.Sequential(
+                nn.ReflectionPad2d((1, 0, 1, 0)),
+                nn.AvgPool2d((2, 2), stride=1)
+            )
+        else:
+            self.blur = None
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.bn(x)
         x = self.relu(x)
         x = self.shuffle(x)
-        return x
+        return self.blur(x) if self.blur else x

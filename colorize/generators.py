@@ -4,13 +4,12 @@ import torchvision
 import layers
 
 
-class UNet(nn.Module):
+class UNet34(nn.Module):
     def __init__(self):
         super().__init__()
 
         # get pretrained ResNet backbone to use as an encoder
-        resnet = torchvision.models.resnet34(pretrained=True)
-        resnet.eval()
+        resnet = torchvision.models.resnet34(pretrained=True).eval()
         for param in resnet.parameters():
             param.requires_grad = False
 
@@ -26,25 +25,25 @@ class UNet(nn.Module):
         # decoder
         self.dec_block5 = self._dec_block((512, 1024, 512), 256
                                           )  # -> (256, 14, 14)
-        self.dec_block4 = self._dec_block((512, 256, 256), 128
-                                          )  # -> (128, 28, 28)
-        self.dec_block3 = self._dec_block((256, 128, 128), 64
-                                          )  # -> (64, 56, 56)
-        self.dec_block2 = self._dec_block((128, 64, 128), 64,
-                                          )  # -> (64, 112, 112)
-        self.dec_block1 = self._dec_block((128, 64, 64), 32,
-                                          )  # -> (32, 224, 224)
+        self.dec_block4 = self._dec_block((512, 768, 768), 384
+                                          )  # -> (384, 28, 28)
+        self.dec_block3 = self._dec_block((512, 768, 768), 384,
+                                          self_attention=True
+                                          )  # -> (384, 56, 56)
+        self.dec_block2 = self._dec_block((448, 672, 672), 336,
+                                          )  # -> (336, 112, 112)
+        self.dec_block1 = self._dec_block((400, 300, 300), 300,
+                                          )  # -> (300, 224, 224)
 
         # final convolution
         self.output_conv = nn.Sequential(
-            nn.Conv2d(32, 16, 3, 1, 1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.Conv2d(16, 3, 1, 1, 0),
+            layers.ConvBlock33((303, 303, 303)),
+            nn.Conv2d(303, 3, 1, 1, 0),
             nn.Sigmoid()
         )  # -> (3, 224, 224)
 
     def forward(self, X: torch.tensor) -> torch.tensor:
+        inp = X.clone()
         features = []
         for module in (self.enc_block1, self.enc_block2,
                        self.enc_block3, self.enc_block4):
@@ -56,13 +55,11 @@ class UNet(nn.Module):
                                     self.dec_block2, self.dec_block1)):
             X = torch.cat([feature, X], dim=1)
             X = module(X)
-        return self.output_conv(X)
+        return self.output_conv(torch.cat([inp, X], dim=1))
 
     @staticmethod
     def _dec_block(c_conv: tuple[int], c_out: int, **kwargs) -> nn.Module:
         return nn.Sequential(
-            nn.ReLU(),
             layers.ConvBlock33(c_conv, kaiming_init=True, **kwargs),
-            layers.PixelShuffle_ICNR(c_conv[-1], c_out * 4, scale=2),
-            nn.BatchNorm2d(c_out)
+            layers.PixelShuffle_ICNR(c_conv[-1], c_out*4, scale=2, blur=True),
         )
