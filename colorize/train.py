@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from torch import nn
+from torch import nn, optim
 from torch.utils.data import DataLoader
 from dataset_utils import ColorizationFolderDataset, tensor2image
 from torchvision import transforms as T
@@ -12,13 +12,14 @@ from loss_functions import VGG16Loss
 
 
 BATCH_SIZE = 8
-BATCHES_PER_UPDATE = 1
+BATCHES_PER_UPDATE = 2
 OUTPUT_DIR = 'output'
 UPDATES_PER_EVAL = 500
-TOTAL_UPDATES = 5000
+TOTAL_UPDATES = 20000
 EXPORT_IMAGES = 64
-LR = 1e-3
+LR = 1e-4
 WEIGHT_DECAY = 1e-3
+GRAD_CLIP = 5.0
 
 
 def main():
@@ -89,8 +90,10 @@ def train(model: nn.Module, train_dataloader: DataLoader,
     cur_samples = 0
     train_loss = []
     val_loss = []
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=LR,
-                                 weight_decay=WEIGHT_DECAY)
+    optimizer = optim.Adam(params=model.parameters(), lr=LR,
+                           weight_decay=WEIGHT_DECAY)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.3, patience=4, verbose=True)
     model.train()
 
     while True:
@@ -99,6 +102,7 @@ def train(model: nn.Module, train_dataloader: DataLoader,
             X, Y = X.to(device), Y.to(device)
             output = model(X)
             loss = loss_fn(output, Y)
+            assert not torch.isnan(loss).any()
 
             # update average loss for current `eval_every` iterations
             cur_loss += loss.item() * len(Y)  # weighted average
@@ -108,6 +112,8 @@ def train(model: nn.Module, train_dataloader: DataLoader,
             loss.backward()
             cur_iter += 1
             if cur_iter == BATCHES_PER_UPDATE:
+                if GRAD_CLIP:
+                    nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
                 optimizer.step()
                 optimizer.zero_grad()
                 cur_iter = 0
@@ -129,6 +135,7 @@ def train(model: nn.Module, train_dataloader: DataLoader,
                                  export_images, num_updates)
                     )
                     print(f'  val loss: {val_loss[-1]:.2e}')
+                    scheduler.step(val_loss[-1])
                     if save_best and np.argmin(val_loss) == len(val_loss)-1:
                         torch.save(model.state_dict(),
                                    os.path.join(OUTPUT_DIR, 'model.pth'))
