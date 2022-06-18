@@ -34,6 +34,8 @@ class VGG16Loss(nn.Module):
             layer_ind = self.LAYER_NAMES.index(name)
             self.sw[layer_ind] = weight
 
+        self.normalize = tv.transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                                                 std=(0.229, 0.224, 0.225))
         self.loss_fn = base_loss()
 
     def _style_loss(self, x: torch.tensor,
@@ -47,7 +49,9 @@ class VGG16Loss(nn.Module):
         return self.loss_fn(x, target)
 
     def forward(self, x: torch.tensor, target: torch.tensor) -> torch.tensor:
+        x = self.normalize(x)
         y = target.detach()
+        y = self.normalize(y)
         loss = 0.0
         for i, layer in enumerate(self.vgg.children()):
             x = layer(x)

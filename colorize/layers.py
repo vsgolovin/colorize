@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
@@ -60,6 +61,12 @@ class ResidualUnitBase(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
+    @staticmethod
+    def _apply_spectral_norm(layers: list[nn.Module]):
+        return [layer if not isinstance(layer, nn.Conv2d)
+                else nn.utils.spectral_norm(layer)
+                for layer in layers]
+
 
 class ResidualUnit33(ResidualUnitBase):
     """
@@ -67,13 +74,21 @@ class ResidualUnit33(ResidualUnitBase):
     """
     def __init__(self, channels: tuple[int, int, int], bn: bool = True,
                  bn_first: bool = True, pre_activation: bool = False,
-                 identity_conv: bool = False, kaiming_init: bool = True):
+                 identity_conv: bool = False, kaiming_init: bool = True,
+                 conv_bias: bool = False, self_attention: bool = False,
+                 spectral_norm: bool = False):
         super().__init__(channels, bn, bn_first, pre_activation, identity_conv)
 
         # residual function
-        rf_modules = [nn.Conv2d(channels[0], channels[1], 3, 1, 1, bias=False),
+        rf_modules = [nn.Conv2d(channels[0], channels[1], 3, 1, 1,
+                                bias=conv_bias),
                       self._activation(channels[1]),
-                      nn.Conv2d(channels[1], channels[2], 3, 1, 1, bias=False)]
+                      nn.Conv2d(channels[1], channels[2], 3, 1, 1,
+                                bias=conv_bias)]
+        if spectral_norm:
+            rf_modules = self._apply_spectral_norm(rf_modules)
+        if self_attention:
+            rf_modules.insert(-1, SelfAttention(channels[1]))
         if pre_activation:
             rf_modules = [self._activation(channels[0])] + rf_modules
         elif self.use_bn:
@@ -91,15 +106,24 @@ class ResidualUnit131(ResidualUnitBase):
     """
     def __init__(self, channels: tuple[int, int, int, int], bn: bool = True,
                  bn_first: bool = True, pre_activation: bool = False,
-                 identity_conv: bool = False, kaiming_init: bool = True):
+                 identity_conv: bool = False, kaiming_init: bool = True,
+                 conv_bias: bool = False, self_attention: bool = False,
+                 spectral_norm: bool = False):
         super().__init__(channels, bn, bn_first, pre_activation, identity_conv)
 
         # residual function
-        rf_modules = [nn.Conv2d(channels[0], channels[1], 1, 1, 0, bias=False),
+        rf_modules = [nn.Conv2d(channels[0], channels[1], 1, 1, 0,
+                                bias=conv_bias),
                       self._activation(channels[1]),
-                      nn.Conv2d(channels[1], channels[2], 3, 1, 1, bias=False),
+                      nn.Conv2d(channels[1], channels[2], 3, 1, 1,
+                                bias=conv_bias),
                       self._activation(channels[2]),
-                      nn.Conv2d(channels[2], channels[3], 1, 1, 0, bias=False)]
+                      nn.Conv2d(channels[2], channels[3], 1, 1, 0,
+                                bias=conv_bias)]
+        if spectral_norm:
+            rf_modules = self._apply_spectral_norm(rf_modules)
+        if self_attention:
+            rf_modules.insert(-1, SelfAttention(channels[2]))
         if pre_activation:
             rf_modules = [self._activation(channels[0])] + rf_modules
         elif self.use_bn:
@@ -109,6 +133,30 @@ class ResidualUnit131(ResidualUnitBase):
         # weight initialization
         if kaiming_init:
             self._initialize()
+
+
+class ConvBlock33(ResidualUnit33):
+    def __init__(self, channels: tuple[int, int, int], bn: bool = True,
+                 bn_first: bool = True, kaiming_init: bool = False,
+                 conv_bias: bool = True, self_attention: bool = False,
+                 spectral_norm: bool = False):
+        super().__init__(channels, bn, bn_first, pre_activation=False,
+                         identity_conv=False, kaiming_init=kaiming_init,
+                         conv_bias=conv_bias, self_attention=self_attention,
+                         spectral_norm=spectral_norm)
+        self.identity = lambda _: 0
+
+
+class ConvBlock131(ResidualUnit131):
+    def __init__(self, channels: tuple[int, int, int], bn: bool = True,
+                 bn_first: bool = True, kaiming_init: bool = False,
+                 conv_bias: bool = True, self_attention: bool = False,
+                 spectral_norm: bool = False):
+        super().__init__(channels, bn, bn_first, pre_activation=False,
+                         identity_conv=False, kaiming_init=kaiming_init,
+                         conv_bias=conv_bias, self_attention=self_attention,
+                         spectral_norm=spectral_norm)
+        self.identity = lambda _: 0
 
 
 class SelfAttention(nn.Module):
@@ -148,7 +196,8 @@ class PixelShuffle_ICNR(nn.Module):
     """
     PixelShuffle upsampling with ICNR weight initialization
     """
-    def __init__(self, c_in: int, c_out=None, scale: int = 2):
+    def __init__(self, c_in: int, c_out: Optional[int] = None, scale: int = 2,
+                 blur: bool = False):
         super().__init__()
         c_out = c_out if c_out is not None else c_in * scale ** 2
         conv = nn.Conv2d(c_in, c_out, kernel_size=1, bias=False)
@@ -157,10 +206,17 @@ class PixelShuffle_ICNR(nn.Module):
         self.bn = nn.BatchNorm2d(c_out)
         self.relu = nn.ReLU()
         self.shuffle = nn.PixelShuffle(scale)
+        if blur:
+            self.blur = nn.Sequential(
+                nn.ReflectionPad2d((1, 0, 1, 0)),
+                nn.AvgPool2d((2, 2), stride=1)
+            )
+        else:
+            self.blur = None
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.bn(x)
         x = self.relu(x)
         x = self.shuffle(x)
-        return x
+        return self.blur(x) if self.blur else x
