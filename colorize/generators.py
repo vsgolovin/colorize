@@ -25,20 +25,20 @@ class UNet34(nn.Module):
         # decoder
         self.dec_block5 = self._dec_block((512, 1024, 512), 256
                                           )  # -> (256, 14, 14)
-        self.dec_block4 = self._dec_block((512, 768, 768), 384
-                                          )  # -> (384, 28, 28)
-        self.dec_block3 = self._dec_block((512, 768, 768), 384,
+        self.dec_block4 = self._dec_block((512, 256, 256), 128
+                                          )  # -> (128, 28, 28)
+        self.dec_block3 = self._dec_block((256, 128, 128), 64,
                                           self_attention=True
-                                          )  # -> (384, 56, 56)
-        self.dec_block2 = self._dec_block((448, 672, 672), 336,
-                                          )  # -> (336, 112, 112)
-        self.dec_block1 = self._dec_block((400, 300, 300), 300,
-                                          )  # -> (300, 224, 224)
+                                          )  # -> (64, 56, 56)
+        self.dec_block2 = self._dec_block((128, 64, 128), 64,
+                                          )  # -> (64, 112, 112)
+        self.dec_block1 = self._dec_block((128, 64, 64), 32,
+                                          )  # -> (32, 224, 224)
 
         # final convolution
         self.output_conv = nn.Sequential(
-            layers.ConvBlock33((303, 303, 303)),
-            nn.Conv2d(303, 3, 1, 1, 0),
+            layers.ConvBlock33((35, 35, 35)),
+            nn.Conv2d(35, 3, 1, 1, 0),
             nn.Sigmoid()
         )  # -> (3, 224, 224)
 

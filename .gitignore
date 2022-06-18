@@ -1,8 +1,11 @@
 # Do not copy data
-/data/*/**
+**/data
 
 # Training outputs -- images, state_dicts, loss_plots
 /output
+
+# Model checkpoints
+*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
