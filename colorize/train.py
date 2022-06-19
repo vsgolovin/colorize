@@ -6,56 +6,66 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from dataset_utils import ColorizationFolderDataset, tensor2image
-from torchvision import transforms as T
-from generators import UNet34
-from loss_functions import VGG16Loss
+from torchvision import models, transforms as T
+from generators import UNet
+# from loss_functions import VGG16Loss
 
 
-BATCH_SIZE = 8
-BATCHES_PER_UPDATE = 2
+BATCH_SIZE = 16
+BATCHES_PER_UPDATE = 1
 OUTPUT_DIR = 'output'
 UPDATES_PER_EVAL = 500
-TOTAL_UPDATES = 20000
+TOTAL_UPDATES = 500 * 20
 EXPORT_IMAGES = 64
 LR = 1e-4
-WEIGHT_DECAY = 1e-3
-GRAD_CLIP = 5.0
+WEIGHT_DECAY = 0
+GRAD_CLIP = None
+CIE_LAB = True
 
 
 def main():
     # load dataset
     train_dataset = ColorizationFolderDataset(
-        folder='data/train',
+        folder='data/small/train',
         transforms=T.Compose([
             T.RandomResizedCrop(224),
-            T.RandomHorizontalFlip()
-        ])
+            T.RandomHorizontalFlip(),
+        ]),
+        cie_lab=CIE_LAB
     )
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
                                   shuffle=True)
     val_dataset = ColorizationFolderDataset(
-        folder='data/val'
-    )  # no cropping, already 224x224
+        folder='data/small/val',
+        cie_lab=CIE_LAB
+    )
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
                                 shuffle=False)
 
     # initialize model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = UNet34().to(device)
-    loss_fn = VGG16Loss(
-        feat_layers=['relu3_3', 'relu4_3', 'relu5_3'],
-        feat_weights=[0.3, 1.0, 0.15],
-        style_layers=[],
-        style_weights=[],
-        base_loss=nn.L1Loss
+    model = UNet(
+        resnet=models.resnet18(pretrained=True),
+        bn=False,
+        kaiming_init=True,
+        cie_lab=CIE_LAB
     ).to(device)
+    model.freeze_encoder()
+    # loss_fn = VGG16Loss(
+    #     feat_layers=['relu3_3', 'relu4_3', 'relu5_3'],
+    #     feat_weights=[0.3, 1.0, 0.15],
+    #     style_layers=[],
+    #     style_weights=[],
+    #     base_loss=nn.L1Loss
+    # ).to(device)
+    loss_fn = nn.L1Loss()
 
     # export first batch of validation set images
     if EXPORT_IMAGES:
         exported = 0
-        for _, Y in val_dataloader:
+        for X, _, Y in val_dataloader:
             for i in range(min(EXPORT_IMAGES - exported, len(Y))):
-                img = tensor2image(Y[i])
+                img = tensor2image(Y[i], X[i], cie_lab=CIE_LAB)
                 img.save(os.path.join(OUTPUT_DIR, f'{exported}_real.jpeg'))
                 exported += 1
             if exported == EXPORT_IMAGES:
@@ -93,14 +103,14 @@ def train(model: nn.Module, train_dataloader: DataLoader,
     optimizer = optim.Adam(params=model.parameters(), lr=LR,
                            weight_decay=WEIGHT_DECAY)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.3, patience=4, verbose=True)
+        optimizer, mode='min', factor=0.3, patience=3, verbose=True)
     model.train()
 
     while True:
         # forward pass
-        for X, Y in train_dataloader:
-            X, Y = X.to(device), Y.to(device)
-            output = model(X)
+        for _, Xn, Y in train_dataloader:
+            Xn, Y = Xn.to(device), Y.to(device)
+            output = model(Xn)
             loss = loss_fn(output, Y)
             assert not torch.isnan(loss).any()
 
@@ -118,14 +128,13 @@ def train(model: nn.Module, train_dataloader: DataLoader,
                 optimizer.zero_grad()
                 cur_iter = 0
                 num_updates += 1
-                # print(cur_loss / cur_samples, cur_samples, num_updates)
+                print(f'\r[{num_updates} iterations]', end='')
 
                 # validation
                 if num_updates % eval_every == 0 and num_updates != 0:
                     # calculate and save current train loss
                     train_loss.append(cur_loss / cur_samples)
-                    print(f'[{num_updates} iterations]')
-                    print(f'  train loss: {train_loss[-1]:.2e}')
+                    print(f'\n  train loss: {train_loss[-1]:.2e}')
                     cur_loss = 0.0
                     cur_samples = 0
 
@@ -154,15 +163,15 @@ def evaluate(model: nn.Module, val_dataloader: DataLoader, loss_fn: nn.Module,
     samples = 0
     to_export = 0 if export_images is None else export_images
 
-    for X, Y in val_dataloader:
-        X, Y = X.to(device), Y.to(device)
-        output = model(X)
+    for X, Xn, Y in val_dataloader:
+        Xn, Y = Xn.to(device), Y.to(device)
+        output = model(Xn)
         loss += loss_fn(output, Y).item() * len(Y)
         samples += len(Y)
 
-        if to_export:
-            for i in range(min(len(output), export_images)):
-                img = tensor2image(output[i])
+        if to_export:  # save generated images
+            for i in range(min(len(output), to_export)):
+                img = tensor2image(output[i], L=X[i], cie_lab=CIE_LAB)
                 fname = f'{export_images - to_export}_{num_iter}.jpeg'
                 img.save(os.path.join(OUTPUT_DIR, fname))
                 to_export -= 1

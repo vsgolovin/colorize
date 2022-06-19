@@ -6,7 +6,8 @@ import layers
 
 class UNet(nn.Module):
     def __init__(self, resnet: models.ResNet, self_attention: bool = False,
-                 blur: bool = False, blur_final: bool = True, **kwargs):
+                 blur: bool = False, blur_final: bool = True,
+                 cie_lab: bool = False, **kwargs):
         super().__init__()
         assert 'self_attention' not in kwargs
 
@@ -35,9 +36,10 @@ class UNet(nn.Module):
                                           **kwargs)  # -> (96, 224, 224)
 
         # final convolution
+        out_dim = 2 if cie_lab else 3
         self.output_conv = nn.Sequential(
             layers.ResidualUnit33((99, 99, 99), **kwargs),
-            nn.Conv2d(99, 3, 1, 1, 0),
+            nn.Conv2d(99, out_dim, 1, 1, 0),
             # nn.Sigmoid()
         )  # -> (3, 224, 224)
 

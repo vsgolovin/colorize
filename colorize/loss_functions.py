@@ -34,8 +34,8 @@ class VGG16Loss(nn.Module):
             layer_ind = self.LAYER_NAMES.index(name)
             self.sw[layer_ind] = weight
 
-        self.normalize = tv.transforms.Normalize(mean=(0.485, 0.456, 0.406),
-                                                 std=(0.229, 0.224, 0.225))
+        self.normalize = tv.transforms.Normalize(
+            mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
         self.loss_fn = base_loss()
 
     def _style_loss(self, x: torch.tensor,

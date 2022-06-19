@@ -7,29 +7,32 @@ from generators import UNet
 
 
 OUTPUT_DIR = 'output'
+CIE_LAB = False
 
 
 @torch.no_grad()
 def main():
     # load images and pretrained model
     test_images = ColorizationFolderDataset(
-        'data/tiny/test',
-        transforms=rescale4resnet
+        'data/old_photos',
+        transforms=rescale4resnet,
+        cie_lab=CIE_LAB
     )
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(
-        resnet=models.resnet18(pretrained=True),
-        bn=False,
-        self_attention=False,
-        kaiming_init=True
+        resnet=models.resnet34(pretrained=True),
+        bn=True,
+        self_attention=True,
+        kaiming_init=True,
+        cie_lab=CIE_LAB
     ).to(device).eval()
     model.load_state_dict(torch.load('output/model.pth'))
 
     # colorize images one-by-one
-    for i, [image, _] in enumerate(test_images):
-        inp = image.to(device).unsqueeze(0)
+    for i, [X, Xn, _] in enumerate(test_images):
+        inp = Xn.to(device).unsqueeze(0)
         out = model(inp).squeeze()
-        colored = tensor2image(out)
+        colored = tensor2image(out, X, cie_lab=CIE_LAB)
         colored.save(os.path.join(OUTPUT_DIR, f'{i}_colored.jpeg'))
 
 
