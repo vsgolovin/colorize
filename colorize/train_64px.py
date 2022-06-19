@@ -6,8 +6,8 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from dataset_utils import ColorizationFolderDataset, tensor2image
-from torchvision import transforms as T
-from generators import UNet34
+from torchvision import models, transforms as T
+from generators import UNet
 from loss_functions import VGG16Loss
 
 
@@ -37,7 +37,13 @@ def main():
 
     # initialize model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = UNet34().to(device)
+    model = UNet(
+        resnet=models.resnet18(pretrained=True),
+        bn=False,
+        self_attention=False,
+        kaiming_init=True
+    ).to(device)
+    model.freeze_encoder()
     loss_fn = VGG16Loss(
         feat_layers=['relu3_3', 'relu4_3', 'relu5_3'],
         feat_weights=[0.3, 1.0, 0.15],

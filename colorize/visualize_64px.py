@@ -1,8 +1,9 @@
 import os
 from PIL import Image
 import torch
+from torchvision import models
 from dataset_utils import ColorizationFolderDataset, tensor2image
-from generators import UNet34
+from generators import UNet
 
 
 OUTPUT_DIR = 'output'
@@ -16,7 +17,12 @@ def main():
         transforms=rescale4resnet
     )
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = UNet34().to(device).eval()
+    model = UNet(
+        resnet=models.resnet18(pretrained=True),
+        bn=False,
+        self_attention=False,
+        kaiming_init=True
+    ).to(device).eval()
     model.load_state_dict(torch.load('output/model.pth'))
 
     # colorize images one-by-one
