@@ -6,18 +6,18 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from dataset_utils import ColorizationFolderDataset, tensor2image
-from torchvision import models, transforms as T
+from torchvision import transforms as T
 from generators import UNet
 # from loss_functions import VGG16Loss
 
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 BATCHES_PER_UPDATE = 1
 OUTPUT_DIR = 'output'
-UPDATES_PER_EVAL = 500
-TOTAL_UPDATES = 500 * 20
+UPDATES_PER_EVAL = 300
+TOTAL_UPDATES = 300 * 30
 EXPORT_IMAGES = 64
-LR = 1e-4
+LR = 2e-4
 WEIGHT_DECAY = 0
 GRAD_CLIP = None
 CIE_LAB = True
@@ -26,7 +26,7 @@ CIE_LAB = True
 def main():
     # load dataset
     train_dataset = ColorizationFolderDataset(
-        folder='data/small/train',
+        folder='data/train',
         transforms=T.Compose([
             T.RandomResizedCrop(224),
             T.RandomHorizontalFlip(),
@@ -36,7 +36,7 @@ def main():
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
                                   shuffle=True)
     val_dataset = ColorizationFolderDataset(
-        folder='data/small/val',
+        folder='data/val',
         cie_lab=CIE_LAB
     )
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
@@ -45,10 +45,11 @@ def main():
     # initialize model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(
-        resnet=models.resnet18(pretrained=True),
-        bn=False,
-        kaiming_init=True,
-        cie_lab=CIE_LAB
+        resnet_layers=18,
+        cie_lab=CIE_LAB,
+        self_attention=False,
+        spectral_norm=False,
+        blur=False
     ).to(device)
     model.freeze_encoder()
     # loss_fn = VGG16Loss(
