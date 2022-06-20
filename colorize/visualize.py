@@ -1,7 +1,6 @@
 import os
 from PIL import Image
 import torch
-from torchvision import models
 from dataset_utils import ColorizationFolderDataset, tensor2image
 from generators import UNet
 
@@ -20,9 +19,7 @@ def main():
     )
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(
-        resnet=models.resnet18(pretrained=True),
-        bn=False,
-        kaiming_init=True,
+        resnet_layers=18,
         cie_lab=CIE_LAB
     ).to(device).eval()
     model.load_state_dict(torch.load('output/model.pth'))
