@@ -7,7 +7,7 @@ from generators import UNet
 
 
 OUTPUT_DIR = 'output'
-CIE_LAB = False
+CIE_LAB = True
 
 
 @torch.no_grad()
@@ -20,9 +20,8 @@ def main():
     )
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(
-        resnet=models.resnet34(pretrained=True),
-        bn=True,
-        self_attention=True,
+        resnet=models.resnet18(pretrained=True),
+        bn=False,
         kaiming_init=True,
         cie_lab=CIE_LAB
     ).to(device).eval()
