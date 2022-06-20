@@ -32,10 +32,10 @@ class Model(nn.Module):
 
         self.opt_G = optim.Adam(self.net_G.parameters(), lr=lr_G)
         self.opt_D = optim.Adam(self.net_D.parameters(), lr=lr_D)
-        self.scheduler_G = optim.lr_scheduler.ReduceLROnPlateau(
-            self.opt_G, mode='min', factor=0.3, patience=3, verbose=True)
-        self.scheduler_D = optim.lr_scheduler.ReduceLROnPlateau(
-            self.opt_D, mode='min', factor=0.3, patience=3, verbose=True)
+        # self.scheduler_G = optim.lr_scheduler.ReduceLROnPlateau(
+        #     self.opt_G, mode='min', factor=0.3, patience=3, verbose=True)
+        # self.scheduler_D = optim.lr_scheduler.ReduceLROnPlateau(
+        #     self.opt_D, mode='min', factor=0.3, patience=3, verbose=True)
 
     def set_requires_grad(self, model, requires_grad=True):
         for p in model.parameters():
@@ -77,7 +77,7 @@ class Model(nn.Module):
         self.opt_D.zero_grad()
         self.get_loss_D().backward()
         self.opt_D.step()
-        self.scheduler_D.step(self.loss_D.item())
+        # self.scheduler_D.step(self.loss_D.item())
 
         if not only_disc:
             self.net_G.train()
@@ -85,12 +85,12 @@ class Model(nn.Module):
             self.opt_G.zero_grad()
             self.get_loss_G().backward()
             self.opt_G.step()
-            self.scheduler_G.step(self.loss_G.item())
+            # self.scheduler_G.step(self.loss_G.item())
 
 
 def train(model: nn.Module, train_dataloader: DataLoader,
           val_dataloader: Optional[nn.Module] = None,
-          eval_every: int = 100, total_iterations: int = 1000,
+          eval_every: int = 50, total_iterations: int = 1000,
           only_disc: bool = True):
 
     cur_iter = 0
@@ -124,7 +124,10 @@ def train(model: nn.Module, train_dataloader: DataLoader,
                     print(f'\n  Generator train loss: {train_loss_G[-1]:.2e}')
                     cur_loss_G = 0.0
                 cur_samples = 0
+                pbar.close()
+                pbar = tqdm(total=eval_every)
             if cur_iter >= total_iterations:
+                pbar.close()
                 return (np.array(train_loss_D), np.array(val_loss_D),
                         np.array(train_loss_G), np.array(val_loss_G))
 
