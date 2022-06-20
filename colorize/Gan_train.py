@@ -11,8 +11,8 @@ from generators import UNet
 from tqdm import tqdm
 
 CIE_LAB = True
-BATCH_SIZE = 32
-TRAIN_FOLDER = 'data/imagenet_tiny/Train'
+BATCH_SIZE = 16
+TRAIN_FOLDER = 'data/imagenet_tiny/train'
 MODEL_PATH = 'output/model.pth'
 
 
