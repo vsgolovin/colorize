@@ -1,94 +1,108 @@
-from typing import Optional
+from typing import Optional, Union, Callable
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import nn, optim, Tensor
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from dataset_utils import ColorizationFolderDataset
 from loss_functions import GANLoss
-from critics import Discriminator
+from critics import SimpleCritic
 from generators import UNet
 from tqdm import tqdm
 
 CIE_LAB = True
 BATCH_SIZE = 16
 TRAIN_FOLDER = 'data/imagenet_tiny/train'
-MODEL_PATH = 'output/model.pth'
+MODEL_PATH = 'checkpoints/resnet18.pth'
 
 
-class Model(nn.Module):
+class GANLearner:
+    default_optG_settings = dict(lr=1e-4, betas=(0.5, 0.99))
+    default_optD_settings = dict(lr=2e-4, betas=(0.5, 0.99))
+
     def __init__(self, net_G: nn.Module, net_D: nn.Module,
-                 lr_G: float = 2e-4, lr_D: float = 2e-4,
-                 lambda_L1: float = 25.):
+                 pixel_loss: Callable = F.l1_loss,
+                 pixel_loss_weight: float = 25.,
+                 gan_mode: str = 'vanilla',
+                 gen_opt_params: Optional[dict] = None,
+                 discr_opt_params: Optional[dict] = None,
+                 device: Union[str, torch.device] = 'cpu'):
         super().__init__()
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
-        self.lambda_L1 = lambda_L1
+        # device to use
+        if isinstance(device, str):
+            self.device = torch.device(device)
+        else:
+            self.device = device
 
+        # loss functions
+        self.pixel_loss = pixel_loss
+        self.pixel_loss_weight = pixel_loss_weight
+        self.gan_loss = GANLoss(self.device, gan_mode=gan_mode)
+
+        # generator and discriminator networks
         self.net_G = net_G.to(self.device)
         self.net_D = net_D.to(self.device)
-        self.GANcriterion = GANLoss(gan_mode='vanilla').to(self.device)
-        self.L1criterion = nn.L1Loss()
 
-        self.opt_G = optim.Adam(self.net_G.parameters(), lr=lr_G)
-        self.opt_D = optim.Adam(self.net_D.parameters(), lr=lr_D)
-        # self.scheduler_G = optim.lr_scheduler.ReduceLROnPlateau(
-        #     self.opt_G, mode='min', factor=0.3, patience=3, verbose=True)
-        # self.scheduler_D = optim.lr_scheduler.ReduceLROnPlateau(
-        #     self.opt_D, mode='min', factor=0.3, patience=3, verbose=True)
+        # optimizers
+        if gen_opt_params is None:
+            gen_opt_params = self.default_optG_settings
+        self.opt_G = optim.Adam(self.net_G.parameters(), **gen_opt_params)
+        if discr_opt_params is None:
+            discr_opt_params = self.default_optD_settings
+        self.opt_D = optim.Adam(self.net_D.parameters(), **discr_opt_params)
 
-    def set_requires_grad(self, model, requires_grad=True):
-        for p in model.parameters():
-            p.requires_grad = requires_grad
+    # freezing / unfreezing generator for discriminator pretraining
+    def freeze_generator(self):
+        self.net_G.eval()
+        self._set_requires_grad(self.net_G, False)
 
-    def setup_input(self, L, Xn, ab):
-        self.L = L.to(self.device)
-        self.Xn = Xn.to(self.device)
-        self.ab = ab.to(self.device)
+    def unfreeze_generator(self):
+        self.net_G.train()
+        self._set_requires_grad(self.net_G, True)
 
-    def forward(self):
-        self.fake_color = self.net_G(self.Xn)
+    def _make_images(self, L: Tensor, Ln: Tensor, AB: Tensor
+                     ) -> tuple[Tensor, Tensor]:
+        AB_fake = self.net_G(Ln)
+        fake_imgs = torch.cat([L, AB_fake], dim=1)
+        real_imgs = torch.cat([L, AB], dim=1)
+        return fake_imgs, real_imgs
 
-    def get_loss_D(self):
-        fake_image = torch.cat([self.L, self.fake_color], dim=1)
-        fake_preds = self.net_D(fake_image.detach())
-        self.loss_D_fake = self.GANcriterion(fake_preds, False)
-        real_image = torch.cat([self.L, self.ab], dim=1)
-        real_preds = self.net_D(real_image)
-        self.loss_D_real = self.GANcriterion(real_preds, True)
-        self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
-        return self.loss_D
-        # self.loss_D.backward()
-
-    def get_loss_G(self):
-        fake_image = torch.cat([self.L, self.fake_color], dim=1)
-        fake_preds = self.net_D(fake_image)
-        self.loss_G_GAN = self.GANcriterion(fake_preds, True)
-        self.loss_G_L1 = self.L1criterion(
-            self.fake_color, self.ab) * self.lambda_L1
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
-        return self.loss_G
-        # self.loss_G.backward()
-
-    def optimize(self, only_disc: bool = True):
-        self.forward()
+    def train_iter(self, batch: tuple[Tensor], discr_only: bool = True):
         self.net_D.train()
-        self.set_requires_grad(self.net_D, True)
-        self.opt_D.zero_grad()
-        self.get_loss_D().backward()
-        self.opt_D.step()
-        # self.scheduler_D.step(self.loss_D.item())
-
-        if not only_disc:
+        if discr_only:
+            self.net_G.eval()
+        else:
             self.net_G.train()
-            self.set_requires_grad(self.net_D, False)
+
+        L, Xn, AB = [t.to(self.device) for t in batch]
+        fake_imgs, real_imgs = self._make_images(L, Xn, AB)
+
+        # ree
+        probs_fake = self.net_D(fake_imgs.detach())
+        probs_real = self.net_D(real_imgs)
+        lossD_fake = self.gan_loss(probs_fake, False)
+        lossD_real = self.gan_loss(probs_real, True)
+        lossD = (lossD_fake + lossD_real) / 2
+        self.opt_D.zero_grad()
+        lossD.backward()
+        self.opt_D.step()
+
+        if not discr_only:
+            probs = self.net_D(fake_imgs)
+            lossG_gan = self.gan_loss(probs, True)
+            lossG_pixel = self.pixel_loss(fake_imgs, real_imgs)
+            lossG = lossG_gan + lossG_pixel * self.pixel_loss_weight
             self.opt_G.zero_grad()
-            self.get_loss_G().backward()
+            lossG.backward()
             self.opt_G.step()
-            # self.scheduler_G.step(self.loss_G.item())
+        else:
+            lossG = torch.tensor([0.0])
+
+        return lossD.item(), lossG.item()
 
 
-def train(model: nn.Module, train_dataloader: DataLoader,
+def train(model: GANLearner, train_dataloader: DataLoader,
           val_dataloader: Optional[nn.Module] = None,
           eval_every: int = 50, total_iterations: int = 1000,
           only_disc: bool = True):
@@ -104,14 +118,13 @@ def train(model: nn.Module, train_dataloader: DataLoader,
 
     pbar = tqdm(total=eval_every)
     while True:
-        for L, Xn, ab in train_dataloader:
-
-            model.setup_input(L, Xn, ab)
-            model.optimize(only_disc)
-            cur_loss_D += model.loss_D.item() * len(L)
-            if not only_disc:
-                cur_loss_G += model.loss_G.item() * len(L)
-            cur_samples += len(L)
+        for batch in train_dataloader:
+            bs = len(batch[0])
+            lossD, _ = model.train_iter(batch, True)
+            cur_loss_D += lossD * bs
+            # if not only_disc:
+            #     cur_loss_G += model.loss_G.item() * len(L)
+            cur_samples += bs
             pbar.update(1)
             cur_iter += 1
             # actions for current 'eval every'
@@ -140,7 +153,7 @@ def main():
         ).to(device).eval()
     net_G.load_state_dict(
         torch.load(MODEL_PATH, map_location=device))
-    net_D = Discriminator()
+    net_D = SimpleCritic()
 
     train_dataset = ColorizationFolderDataset(
             folder=TRAIN_FOLDER,
@@ -153,7 +166,7 @@ def main():
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    model = Model(net_G, net_D)
+    model = GANLearner(net_G, net_D, device='cuda')
     train(model, train_dataloader)
 
 

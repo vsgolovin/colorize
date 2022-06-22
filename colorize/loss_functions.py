@@ -70,13 +70,14 @@ def gram_matrix(x: torch.tensor) -> torch.tensor:
     G = torch.mm(features, features.t())
     return G.div(a * b * c * d)
 
+
 class GANLoss(nn.Module):
-    def __init__(self, gan_mode='vanilla', real_label=1.0, fake_label=0.0):
+    def __init__(self, device: torch.device, gan_mode='vanilla', real_label=1.0, fake_label=0.0):
         super().__init__()
-        self.register_buffer('real_label', torch.tensor(real_label))
-        self.register_buffer('fake_label', torch.tensor(fake_label))
+        self.register_buffer('real_label', torch.tensor(real_label, device=device))
+        self.register_buffer('fake_label', torch.tensor(fake_label, device=device))
         if gan_mode == 'vanilla':
-            self.loss = nn.BCEWithLogitsLoss()
+            self.loss = nn.BCELoss()
         elif gan_mode == 'lsgan':
             self.loss = nn.MSELoss()
 
