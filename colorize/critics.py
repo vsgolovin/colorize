@@ -1,4 +1,4 @@
-from torch import nn
+from torch import nn, Tensor
 from layers import SelfAttention
 
 
@@ -35,3 +35,39 @@ class DeOldify_Discriminator(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+
+class SimpleCritic(nn.Module):
+    def __init__(self, in_channels: int = 3, nc_first: int = 64,
+                 num_blocks: int = 3):
+        super().__init__()
+        # first downscale block
+        self.inp_block = self._conv_block(in_channels, nc_first)
+        nc = nc_first  # current number of channels
+
+        # next `num_blocks` downscale blocks
+        modules = []
+        for _ in range(num_blocks):
+            modules.append(self._conv_block(nc, nc * 2))
+            nc *= 2
+        self.downscale = nn.Sequential(*modules)
+
+        # output block
+        self.out = nn.Sequential(
+            nn.Conv2d(nc, 1, 4, 1, bias=False),
+            nn.Sigmoid(),
+            nn.Flatten(start_dim=1)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.inp_block(x)
+        x = self.downscale(x)
+        return self.out(x).mean(1)  # returns probabilities
+
+    @staticmethod
+    def _conv_block(c_in: int, c_out: int):
+        return nn.Sequential(
+            nn.Conv2d(c_in, c_out, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(c_out),
+            nn.LeakyReLU(0.1)
+        )
