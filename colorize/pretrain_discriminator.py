@@ -62,8 +62,6 @@ def main():
         eval_every=EVAL_EVERY,
         total_iterations=TOTAL_ITERATIONS
     )
-    torch.save(learner.net_D.state_dict(),
-               os.path.join(OUTPUT_FOLDER, 'model.pth'))
 
     # plot loss curve
     iters = np.arange(1, len(train_loss) + 1) * EVAL_EVERY
