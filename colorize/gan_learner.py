@@ -37,6 +37,7 @@ class GANLearner:
         # generator and discriminator networks
         self.net_G = net_G.to(self.device)
         self.net_D = net_D.to(self.device)
+        self.net_D.train()  # never eval()!
 
         # optimizers
         if gen_opt_params is None:
@@ -67,13 +68,9 @@ class GANLearner:
         real_imgs = torch.cat([L, AB], dim=1)
         return fake_imgs, real_imgs
 
-    def train_iter(self, batch: tuple[Tensor], discr_only: bool = True
-                   ) -> tuple[float, float]:
-        """
-        Perform single training iteration.
-        """
-        self.net_D.train()
-        if discr_only:
+    def iteration(self, batch: tuple[Tensor], discr_only: bool = True,
+                  train: bool = True) -> tuple[float, float]:
+        if not train or discr_only:
             self.net_G.eval()
         else:
             self.net_G.train()
@@ -90,9 +87,10 @@ class GANLearner:
         lossD_fake = self.gan_loss(probs_fake, False)
         lossD_real = self.gan_loss(probs_real, True)
         lossD = (lossD_fake + lossD_real) / 2
-        self.opt_D.zero_grad()
-        lossD.backward()
-        self.opt_D.step()
+        if train:
+            self.opt_D.zero_grad()
+            lossD.backward()
+            self.opt_D.step()
 
         # update generator
         if not discr_only:
@@ -100,10 +98,26 @@ class GANLearner:
             lossG_gan = self.gan_loss(probs, True)
             lossG_pixel = self.pixel_loss(fake_imgs, real_imgs)
             lossG = lossG_gan + lossG_pixel * self.pixel_loss_weight
-            self.opt_G.zero_grad()
-            lossG.backward()
-            self.opt_G.step()
+            if train:
+                self.opt_G.zero_grad()
+                lossG.backward()
+                self.opt_G.step()
         else:
             lossG = torch.tensor([0.0])
 
         return lossD.item(), lossG.item(), correct_predictions
+
+    def train_iter(self, batch: tuple[Tensor], discr_only: bool = True
+                   ) -> tuple[float, float]:
+        """
+        Perform single training iteration.
+        """
+        return self.iteration(batch, discr_only, True)
+
+    @torch.no_grad()
+    def eval_iter(self, batch: tuple[Tensor], discr_only: bool = True
+                  ) -> tuple[float, float]:
+        """
+        Evaluate model for a single batch.
+        """
+        return self.iteration(batch, discr_only, False)
