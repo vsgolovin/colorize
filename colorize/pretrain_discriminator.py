@@ -14,10 +14,11 @@ from gan_learner import GANLearner
 
 BATCH_SIZE = 64
 MODEL_PATH = 'checkpoints/resnet18.pth'
-TRAIN_FOLDER = 'data/train'
+TRAIN_DATA = 'data/imagenet_tiny/train'
+VAL_DATA = 'data/imagenet_tiny/val'
 OUTPUT_FOLDER = 'output'
 CIE_LAB = True  # RGB not yet supported
-EVAL_EVERY = 150
+EVAL_EVERY = 10
 TOTAL_ITERATIONS = EVAL_EVERY * 10
 
 
@@ -37,7 +38,7 @@ def main():
 
     # load dataset
     train_dataset = ColorizationFolderDataset(
-            folder=TRAIN_FOLDER,
+            folder=TRAIN_DATA,
             transforms=T.Compose([
                 T.RandomResizedCrop(224),
                 T.RandomHorizontalFlip(),
@@ -50,8 +51,13 @@ def main():
     # train the model
     learner = GANLearner(net_G, net_D, device='cuda')
     learner.freeze_generator()
-    train_loss = train(learner, train_dataloader, eval_every=EVAL_EVERY,
-                       total_iterations=TOTAL_ITERATIONS, disc_only=True)[0]
+    train_loss, train_acc = train(
+        learner,
+        train_dataloader,
+        None,
+        eval_every=EVAL_EVERY,
+        total_iterations=TOTAL_ITERATIONS
+    )
     torch.save(learner.net_D.state_dict(),
                os.path.join(OUTPUT_FOLDER, 'model.pth'))
 
@@ -62,55 +68,63 @@ def main():
     plt.xlabel('Parameter updates')
     plt.ylabel('Loss')
     plt.legend()
+
+    plt.figure()
+    plt.plot(iters, train_acc, label='train')
+    plt.xlabel('Parameter updates')
+    plt.ylabel('Accuracy')
+    plt.legend()
     plt.tight_layout()
     plt.show()
 
 
 def train(learner: GANLearner, train_dataloader: DataLoader,
-          val_dataloader: Optional[DataLoader] = None,
-          eval_every: int = 50, total_iterations: int = 1000,
-          disc_only: bool = True):
+          val_dataloader: DataLoader, eval_every: int = 100,
+          total_iterations: int = 1000) -> tuple[np.ndarray]:
 
     cur_iter = 0
-    cur_loss_G = 0.0
-    cur_loss_D = 0.0
+    cur_loss = 0.0
     cur_samples = 0
-    train_loss_G = []
-    train_loss_D = []
-    val_loss_G = []
-    val_loss_D = []
+    accurate_predictions = 0
+    train_loss = []
+    train_acc = []
+    # val_loss = []
+    # val_acc = []
     pbar = None
 
     while True:
         for batch in train_dataloader:
+            # create progress bar (if needed)
             if pbar is None:
                 pbar = tqdm(total=eval_every)
-            bs = len(batch[0])
-            lossD, _ = learner.train_iter(batch, True)
-            cur_loss_D += lossD * bs
-            # if not only_disc:
-            #     cur_loss_G += model.loss_G.item() * len(L)
+
+            # single discriminator iteration
+            bs = len(batch[0]) * 2  # current batch size
+            lossD, _, acc = learner.train_iter(batch, True)
+
+            # update metrics
+            cur_loss += lossD * bs
+            accurate_predictions += acc
             cur_samples += bs
             pbar.update(1)
             cur_iter += 1
+
             # actions for current 'eval every'
             if cur_iter % eval_every == 0:
                 pbar.close()
                 pbar = None
-                train_loss_D.append(cur_loss_D / cur_samples)
-                print(f'Discriminator train loss: {train_loss_D[-1]:.2e}')
-                cur_loss_D = 0.0
-                if not disc_only:
-                    train_loss_G.append(cur_loss_G / cur_samples)
-                    print(f'Generator train loss: {train_loss_G[-1]:.2e}')
-                    cur_loss_G = 0.0
+                train_loss.append(cur_loss / cur_samples)
+                train_acc.append(accurate_predictions / cur_samples)
+                print(f'Discriminator train loss: {train_loss[-1]:.2e}'
+                      + f' accuracy: {train_acc[-1]:.3f}')
+                cur_loss = 0.0
+                accurate_predictions = 0
                 cur_samples = 0
 
             if cur_iter >= total_iterations:
                 if pbar is not None:
                     pbar.close()
-                return (np.array(train_loss_D), np.array(val_loss_D),
-                        np.array(train_loss_G), np.array(val_loss_G))
+                return np.array(train_loss), np.array(train_acc)
 
 
 if __name__ == '__main__':
