@@ -72,12 +72,12 @@ class LabColorizationDataset(Dataset):
             real_L, real_ab = self.lab_transform(real_img)
         with Image.open(
                 Path(self.fake_folder, self.filenames[index])) as fake_img:
-            fake_img = self.lab_transform(fake_img)
-            fake_L, fake_ab = self.transform(fake_img)
+            fake_img = self.transforms(fake_img)
+            fake_L, fake_ab = self.lab_transform(fake_img)
         return {'real_L': real_L, 'real_ab': real_ab,
                 'fake_L': fake_L, 'fake_ab': fake_ab}
 
-    def Lab_transform(self, img):
+    def lab_transform(self, img):
         if self.transforms:
             img = self.transforms(img)
         img = np.array(img)
@@ -86,6 +86,9 @@ class LabColorizationDataset(Dataset):
         L = img_lab[[0], ...] / 50. - 1.  # Between -1 and 1
         ab = img_lab[[1, 2], ...] / 110.  # Between -1 and 1
         return L, ab
+
+    def __len__(self):
+        return len(self.filenames)
 
 
 class ColorizationDataset(Dataset):
