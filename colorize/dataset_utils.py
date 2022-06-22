@@ -1,5 +1,6 @@
 from typing import Optional, Callable
 import os
+from pathlib import Path
 import warnings
 from PIL import Image
 import torch
@@ -42,10 +43,49 @@ class ColorizationFolderDataset(Dataset):
             else:
                 gray = self.to_tensor(self.grayscale(img))
                 target = self.to_tensor(img)
-        return gray, self.normalize(gray.repeat((3, 1, 1))), target
+        return gray, self.normalize(gray.repeat((3, 1, 1))), target#, self.files[index]
 
     def __len__(self):
         return len(self.files)
+
+
+class LabColorizationDataset(Dataset):
+    def __init__(self,
+                 real_image_folder: str,
+                 fake_image_folder: str,
+                 transforms: Optional[Callable] = None,
+                 image_format: str = "JPEG"):
+        assert set(os.listdir(real_image_folder)) ==\
+               set(os.listdir(fake_image_folder))
+        self.real_folder = real_image_folder
+        self.fake_folder = fake_image_folder
+        self.filenames = tuple(
+            f for f in os.listdir(real_image_folder)
+            if f.endswith(image_format))
+        self.to_tensor = tv.transforms.ToTensor()
+        self.transforms = transforms
+
+    def __getitem__(self, index: int) -> tuple[torch.tensor, torch.tensor]:
+        with Image.open(
+                Path(self.real_folder, self.filenames[index])) as real_img:
+            real_img = self.transforms(real_img)
+            real_L, real_ab = self.lab_transform(real_img)
+        with Image.open(
+                Path(self.fake_folder, self.filenames[index])) as fake_img:
+            fake_img = self.lab_transform(fake_img)
+            fake_L, fake_ab = self.transform(fake_img)
+        return {'real_L': real_L, 'real_ab': real_ab,
+                'fake_L': fake_L, 'fake_ab': fake_ab}
+
+    def Lab_transform(self, img):
+        if self.transforms:
+            img = self.transforms(img)
+        img = np.array(img)
+        img_lab = rgb2lab(img).astype("float32")  # Converting RGB to L*a*b
+        img_lab = self.to_tensor(img_lab)
+        L = img_lab[[0], ...] / 50. - 1.  # Between -1 and 1
+        ab = img_lab[[1, 2], ...] / 110.  # Between -1 and 1
+        return L, ab
 
 
 class ColorizationDataset(Dataset):

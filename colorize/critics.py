@@ -2,7 +2,7 @@ from torch import nn
 from layers import SelfAttention
 
 
-class Discriminator(nn.Module):
+class DeOldify_Discriminator(nn.Module):
     def __init__(self, c_in: int = 3, n_filters: int = 256, n_down: int = 3):
         super().__init__()
         # First convolution
