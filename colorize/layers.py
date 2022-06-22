@@ -166,12 +166,17 @@ class SelfAttention(nn.Module):
     def __init__(self, n_channels: int, qk_downscale: int = 8):
         assert qk_downscale >= 1
         super().__init__()
-        self.Q = nn.Conv1d(n_channels, n_channels // qk_downscale, 1, 1, 0)
-        self.K = nn.Conv1d(n_channels, n_channels // qk_downscale, 1, 1, 0)
-        self.V = nn.Conv1d(n_channels, n_channels, 1, 1, 0)
+        self.Q = self._conv(n_channels, n_channels // qk_downscale)
+        self.K = self._conv(n_channels, n_channels // qk_downscale)
+        self.V = self._conv(n_channels, n_channels)
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
         self.gamma = nn.Parameter(torch.zeros(1))
+
+    @staticmethod
+    def _conv(c_in: int, c_out: int) -> nn.Module:
+        return nn.utils.spectral_norm(
+            nn.Conv1d(c_in, c_out, 1, 1, 0, bias=False))
 
     def forward(self, x: Tensor) -> Tensor:
         size = x.size()

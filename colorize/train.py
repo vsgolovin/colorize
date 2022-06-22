@@ -8,14 +8,13 @@ from torch.utils.data import DataLoader
 from dataset_utils import ColorizationFolderDataset, tensor2image
 from torchvision import transforms as T
 from generators import UNet
-# from loss_functions import VGG16Loss
 
 
 BATCH_SIZE = 32
 BATCHES_PER_UPDATE = 1
 OUTPUT_DIR = 'output'
 UPDATES_PER_EVAL = 300
-TOTAL_UPDATES = 300 * 30
+TOTAL_UPDATES = 300 * 50
 EXPORT_IMAGES = 64
 LR = 2e-4
 WEIGHT_DECAY = 0
@@ -45,23 +44,16 @@ def main():
     # initialize model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(
-        resnet_layers=18,
+        resnet_layers=34,
         cie_lab=CIE_LAB,
-        self_attention=False,
-        spectral_norm=False,
-        blur=False
+        self_attention=True,
+        spectral_norm=True,
+        blur=True
     ).to(device)
     model.freeze_encoder()
-    # loss_fn = VGG16Loss(
-    #     feat_layers=['relu3_3', 'relu4_3', 'relu5_3'],
-    #     feat_weights=[0.3, 1.0, 0.15],
-    #     style_layers=[],
-    #     style_weights=[],
-    #     base_loss=nn.L1Loss
-    # ).to(device)
     loss_fn = nn.L1Loss()
 
-    # export first batch of validation set images
+    # export first n images from the validation set
     if EXPORT_IMAGES:
         exported = 0
         for X, _, Y in val_dataloader:
@@ -104,7 +96,8 @@ def train(model: nn.Module, train_dataloader: DataLoader,
     optimizer = optim.Adam(params=model.parameters(), lr=LR,
                            weight_decay=WEIGHT_DECAY)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.3, patience=3, verbose=True)
+        optimizer, mode='min', factor=0.3, patience=3, threshold=5e-3,
+        cooldown=2, verbose=True)
     model.train()
 
     while True:
