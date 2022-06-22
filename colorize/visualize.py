@@ -19,7 +19,10 @@ def main():
     )
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(
-        resnet_layers=18,
+        resnet_layers=34,
+        self_attention=True,
+        spectral_norm=True,
+        blur=True,
         cie_lab=CIE_LAB
     ).to(device).eval()
     model.load_state_dict(torch.load('output/model.pth'))
