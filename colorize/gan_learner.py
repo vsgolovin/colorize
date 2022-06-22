@@ -61,6 +61,11 @@ class GANLearner:
         self.net_G.train()
         self._set_requires_grad(self.net_G, True)
 
+    @staticmethod
+    def _set_requires_grad(model: nn.Module, value: bool):
+        for param in model.parameters():
+            param.requires_grad = value
+
     def _make_images(self, L: Tensor, Ln: Tensor, AB: Tensor
                      ) -> tuple[Tensor, Tensor]:
         AB_fake = self.net_G(Ln)
