@@ -36,7 +36,12 @@ class ColorizationFolderDataset(Dataset):
             if self.transforms:
                 img = self.transforms(img)
             if self.use_cielab:
-                arr = rgb2lab(np.array(img)).astype('float32')
+                img = np.array(img)
+                if img.ndim == 2:
+                    img = img[:, :, np.newaxis]
+                    img = np.broadcast_to(img[:, :, np.newaxis],
+                                          (*img.shape[:2], 3))
+                arr = rgb2lab(img).astype('float32')
                 L, ab = map(self.to_tensor, (arr[:, :, 0], arr[:, :, 1:]))
                 gray = L / 100.
                 target = (ab + 128.) / 255.

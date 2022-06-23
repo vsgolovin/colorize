@@ -1,11 +1,12 @@
 import os
-from PIL import Image
 import torch
 from colorize.utils import ColorizationFolderDataset, tensor2image, rescale4resnet
 from colorize.generators import UNet
 
 
+INPUT_DIR = 'data/old_photos'
 OUTPUT_DIR = 'output'
+MODEL_WEIGHTS = 'checkpoints/resnet34_full.pth'
 CIE_LAB = True
 
 
@@ -13,7 +14,7 @@ CIE_LAB = True
 def main():
     # load images and pretrained model
     test_images = ColorizationFolderDataset(
-        'data/old_photos',
+        INPUT_DIR,
         transforms=rescale4resnet,
         cie_lab=CIE_LAB
     )
@@ -25,7 +26,7 @@ def main():
         blur=True,
         cie_lab=CIE_LAB
     ).to(device).eval()
-    model.load_state_dict(torch.load('output/model.pth'))
+    model.load_state_dict(torch.load(MODEL_WEIGHTS))
 
     # colorize images one-by-one
     for i, [X, Xn, _] in enumerate(test_images):
