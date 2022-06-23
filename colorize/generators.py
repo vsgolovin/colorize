@@ -2,7 +2,7 @@ from typing import Sequence
 import torch
 from torch import nn, Tensor
 from torchvision import models
-import layers
+from colorize import layers
 
 
 # small models

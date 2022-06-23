@@ -3,7 +3,7 @@ from PIL import Image
 import random
 import shutil
 import numpy as np
-from dataset_utils import crop_resize
+from colorize.utils import crop_resize
 
 
 def main(root: str, train_size: int, val_size: int, test_size: int,

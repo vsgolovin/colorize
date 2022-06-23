@@ -3,15 +3,15 @@ import torch
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
-from generators import UNet
-from critics import SimpleCritic
-from dataset_utils import ColorizationFolderDataset, tensor2image
-from gan_learner import GANLearner
+from colorize.generators import UNet
+from colorize.critics import SimpleCritic
+from colorize.utils import ColorizationFolderDataset, tensor2image
+from colorize.gan_learner import GANLearner
 
 
 BATCH_SIZE = 24
 GEN_WEIGHTS = 'checkpoints/resnet34.pth'
-DISCR_WEIGHTS = 'checkpoints/discriminator.pth'
+DISCR_WEIGHTS = 'checkpoints/discr_128.pth'
 TRAIN_DATA = 'data/train'
 VAL_DATA = 'data/val'
 OUTPUT_DIR = 'output'
@@ -35,7 +35,7 @@ def main():
     net_G.freeze_encoder()
 
     # initialize discriminator
-    net_D = SimpleCritic(nc_first=256).to(device)
+    net_D = SimpleCritic(nc_first=128).to(device)
     net_D.load_state_dict(torch.load(DISCR_WEIGHTS, map_location=device))
 
     # load dataset

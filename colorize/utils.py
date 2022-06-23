@@ -138,3 +138,18 @@ def tensor2image(x: Tensor, L: Optional[Tensor] = None,
             x = lab2rgb(lab)
         x = np.uint8(np.round(x * 255.))
     return tv.transforms.ToPILImage()(x)
+
+
+def rescale4resnet(img: Image) -> Image:
+    """
+    Center crop (supposedly) large image to prevent shape mismatches inside
+    a U-Net with a ResNet backbone.
+    """
+    w, h = img.size
+    new_w = (w // 32) * 32
+    new_h = (h // 32) * 32
+    if new_w == w and new_h == h:
+        return img
+    left = (w - new_w) // 2
+    upper = (h - new_h) // 2
+    return img.crop((left, upper, left + new_w, upper + new_h))

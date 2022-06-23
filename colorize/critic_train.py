@@ -1,14 +1,13 @@
 from typing import Optional
+from tqdm import tqdm
 import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
-from dataset_utils import LabColorizationDataset
-from critics import DeOldify_Discriminator
-from loss_functions import GANLoss
-from visualize import rescale4resnet
-from tqdm import tqdm
+from colorize.utils import LabColorizationDataset, rescale4resnet
+from colorize.critics import DeOldify_Discriminator
+from colorize.loss_functions import GANLoss
 
 # Folder with RGB original pictures
 REAL_IMAGE_FOLDER = 'data/imagenet_tiny/train'

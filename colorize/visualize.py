@@ -1,8 +1,8 @@
 import os
 from PIL import Image
 import torch
-from dataset_utils import ColorizationFolderDataset, tensor2image
-from generators import UNet
+from colorize.utils import ColorizationFolderDataset, tensor2image, rescale4resnet
+from colorize.generators import UNet
 
 
 OUTPUT_DIR = 'output'
@@ -33,21 +33,6 @@ def main():
         out = model(inp).squeeze()
         colored = tensor2image(out, X, cie_lab=CIE_LAB)
         colored.save(os.path.join(OUTPUT_DIR, f'{i}_colored.jpeg'))
-
-
-def rescale4resnet(img: Image) -> Image:
-    """
-    Center crop (supposedly) large image to prevent shape mismatches inside
-    a U-Net with a ResNet backbone.
-    """
-    w, h = img.size
-    new_w = (w // 32) * 32
-    new_h = (h // 32) * 32
-    if new_w == w and new_h == h:
-        return img
-    left = (w - new_w) // 2
-    upper = (h - new_h) // 2
-    return img.crop((left, upper, left + new_w, upper + new_h))
 
 
 if __name__ == '__main__':
