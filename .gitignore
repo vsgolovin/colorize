@@ -1,8 +1,19 @@
 # Do not copy data
-/data/*/**
+**/data
+
+# Trash code
+colorize/prepare_to_Drive.py
 
 # Training outputs -- images, state_dicts, loss_plots
 /output
+
+# Deoldify
+Deoldify/models
+dummy
+result_images
+
+# Model checkpoints
+*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -167,3 +178,4 @@ cython_debug/
 
 # Visual Studio Code
 .vscode/
+.DS_Store
