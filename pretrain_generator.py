@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from dataset_utils import ColorizationFolderDataset, tensor2image
 from torchvision import transforms as T
-from generators import UNet
+from colorize.utils import ColorizationFolderDataset, tensor2image
+from colorize.generators import UNet
 
 
 BATCH_SIZE = 32

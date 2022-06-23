@@ -1,6 +1,6 @@
 from torch import nn, Tensor
 from torch.nn.utils import spectral_norm
-from layers import SelfAttention
+from colorize.layers import SelfAttention
 
 
 class DeOldify_Discriminator(nn.Module):

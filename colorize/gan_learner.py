@@ -2,7 +2,7 @@ from typing import Optional, Union, Callable
 import torch
 from torch import nn, optim, Tensor
 from torch.nn import functional as F
-from loss_functions import GANLoss
+from colorize.loss_functions import GANLoss
 
 
 CIE_LAB = True

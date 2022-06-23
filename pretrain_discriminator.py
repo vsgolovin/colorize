@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
-from generators import UNet
-from critics import SimpleCritic
-from dataset_utils import ColorizationFolderDataset
-from gan_learner import GANLearner
+from colorize.generators import UNet
+from colorize.critics import SimpleCritic
+from colorize.utils import ColorizationFolderDataset
+from colorize.gan_learner import GANLearner
 
 
 BATCH_SIZE = 64

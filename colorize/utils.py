@@ -36,7 +36,12 @@ class ColorizationFolderDataset(Dataset):
             if self.transforms:
                 img = self.transforms(img)
             if self.use_cielab:
-                arr = rgb2lab(np.array(img)).astype('float32')
+                img = np.array(img)
+                if img.ndim == 2:
+                    img = img[:, :, np.newaxis]
+                    img = np.broadcast_to(img[:, :, np.newaxis],
+                                          (*img.shape[:2], 3))
+                arr = rgb2lab(img).astype('float32')
                 L, ab = map(self.to_tensor, (arr[:, :, 0], arr[:, :, 1:]))
                 gray = L / 100.
                 target = (ab + 128.) / 255.
@@ -138,3 +143,18 @@ def tensor2image(x: Tensor, L: Optional[Tensor] = None,
             x = lab2rgb(lab)
         x = np.uint8(np.round(x * 255.))
     return tv.transforms.ToPILImage()(x)
+
+
+def rescale4resnet(img: Image) -> Image:
+    """
+    Center crop (supposedly) large image to prevent shape mismatches inside
+    a U-Net with a ResNet backbone.
+    """
+    w, h = img.size
+    new_w = (w // 32) * 32
+    new_h = (h // 32) * 32
+    if new_w == w and new_h == h:
+        return img
+    left = (w - new_w) // 2
+    upper = (h - new_h) // 2
+    return img.crop((left, upper, left + new_w, upper + new_h))
