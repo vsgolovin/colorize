@@ -13,12 +13,12 @@ from gan_learner import GANLearner
 
 BATCH_SIZE = 64
 MODEL_PATH = 'checkpoints/resnet18.pth'
-TRAIN_DATA = 'data/imagenet_tiny/train'
-VAL_DATA = 'data/imagenet_tiny/val'
+TRAIN_DATA = 'data/train'
+VAL_DATA = 'data/val'
 OUTPUT_FOLDER = 'output'
 CIE_LAB = True  # RGB not yet supported
-EVAL_EVERY = 32
-TOTAL_ITERATIONS = EVAL_EVERY * 4
+EVAL_EVERY = 150
+TOTAL_ITERATIONS = EVAL_EVERY * 10
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
     net_G.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 
     # initialize discriminator
-    net_D = SimpleCritic()
+    net_D = SimpleCritic(nc_first=64)
 
     # load dataset
     train_dataset = ColorizationFolderDataset(

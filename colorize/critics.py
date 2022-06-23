@@ -1,4 +1,5 @@
 from torch import nn, Tensor
+from torch.nn.utils import spectral_norm
 from layers import SelfAttention
 
 
@@ -38,7 +39,7 @@ class DeOldify_Discriminator(nn.Module):
 
 
 class SimpleCritic(nn.Module):
-    def __init__(self, in_channels: int = 3, nc_first: int = 64,
+    def __init__(self, in_channels: int = 3, nc_first: int = 256,
                  num_blocks: int = 3):
         super().__init__()
         # first downscale block
@@ -54,7 +55,7 @@ class SimpleCritic(nn.Module):
 
         # output block
         self.out = nn.Sequential(
-            nn.Conv2d(nc, 1, 4, 1, bias=False),
+            spectral_norm(nn.Conv2d(nc, 1, 4, 1, bias=False)),
             nn.Sigmoid(),
             nn.Flatten(start_dim=1)
         )
@@ -67,7 +68,7 @@ class SimpleCritic(nn.Module):
     @staticmethod
     def _conv_block(c_in: int, c_out: int):
         return nn.Sequential(
-            nn.Conv2d(c_in, c_out, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(c_out),
+            spectral_norm(nn.Conv2d(c_in, c_out, 4, 2, 1, bias=False)),
+            # nn.BatchNorm2d(c_out),
             nn.LeakyReLU(0.1)
         )

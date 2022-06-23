@@ -47,6 +47,10 @@ class GANLearner:
             discr_opt_params = self.default_optD_settings
         self.opt_D = optim.Adam(self.net_D.parameters(), **discr_opt_params)
 
+        # save last generated images
+        self.fake_images = None
+        self.real_images = None
+
     # freezing / unfreezing generator for discriminator pretraining
     def freeze_generator(self):
         self.net_G.eval()
@@ -66,6 +70,8 @@ class GANLearner:
         AB_fake = self.net_G(Ln)
         fake_imgs = torch.cat([L, AB_fake], dim=1)
         real_imgs = torch.cat([L, AB], dim=1)
+        self.fake_images = fake_imgs.cpu().detach()
+        self.real_images = real_imgs.cpu().detach()
         return fake_imgs, real_imgs
 
     def iteration(self, batch: tuple[Tensor], discr_only: bool = True,
